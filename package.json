@@ -1,0 +1,22 @@
+{
+  "name": "nothing-mtui",
+  "version": "0.1.0",
+  "description": "Nothing widget Material You color tokens, lifted from com.nothing.communitywidgets",
+  "type": "module",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "nothing",
+    "material-you",
+    "monet",
+    "widgets",
+    "colors"
+  ],
+  "license": "MIT"
+}
