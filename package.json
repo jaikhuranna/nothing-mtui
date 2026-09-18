@@ -19,5 +19,8 @@
     "widgets",
     "colors"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@material/material-color-utilities": "^0.2.7"
+  }
 }

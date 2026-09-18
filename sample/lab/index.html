@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nothing-mtui lab — seed, image, or pick</title>
+<script type="importmap">
+{"imports": {"@material/material-color-utilities": "/node_modules/@material/material-color-utilities/index.js"}}
+</script>
+<style>
+  body { font-family: ui-monospace, Menlo, monospace; background: #f2f2f2; color: #111; margin: 0; padding: 24px; }
+  body.dark { background: #121212; color: #eee; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  h2 { font-size: 14px; margin: 16px 0 8px; }
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input[type=color] { width: 44px; height: 32px; padding: 0; border: 1px solid #888; background: none; }
+  .drop { border: 2px dashed #888; padding: 8px 14px; cursor: pointer; font-size: 12px; }
+  .drop.drag { border-color: #1a7f37; background: #e6f4ea; }
+  button { font: inherit; padding: 4px 12px; }
+  .seedline { font-size: 12px; margin-top: 8px; }
+  .seeds { display: flex; gap: 4px; margin-top: 6px; }
+  .seeds .sw { width: 18px; height: 18px; border: 1px solid #888; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 12px; }
+  .col h3 { font-size: 12px; margin: 0 0 8px; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .card { width: 140px; height: 140px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; }
+  .card .quote { font-size: 28px; line-height: 1; }
+  .card p { font-size: 9px; margin: 8px 0 0; max-width: 100px; text-align: center; }
+  .snake { display: grid; grid-template-columns: repeat(8, 13px); grid-template-rows: repeat(8, 13px); gap: 2px; }
+  .cell { width: 13px; height: 13px; }
+  .media { display: flex; flex-direction: column; gap: 10px; }
+  .bar { width: 110px; height: 6px; border-radius: 3px; position: relative; }
+  .bar .fill { position: absolute; inset: 0 40% 0 0; border-radius: 3px; }
+  .dots { display: flex; gap: 8px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .switch { width: 34px; height: 18px; border-radius: 9px; display: flex; align-items: center; padding: 2px; box-sizing: border-box; }
+  .switch .thumb { width: 14px; height: 14px; border-radius: 50%; }
+  .track { width: 34px; height: 12px; border-radius: 6px; display: flex; align-items: center; padding: 2px; box-sizing: border-box; }
+  .track .thumb { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; }
+  table { border-collapse: collapse; font-size: 12px; margin-top: 4px; }
+  th, td { border: 1px solid #999; padding: 3px 8px; text-align: left; }
+  body.dark th, body.dark td { border-color: #444; }
+  .sw { display: inline-block; width: 12px; height: 12px; border: 1px solid currentColor; vertical-align: middle; margin-right: 5px; }
+  .pass { color: #1a7f37; font-weight: bold; }
+  body.dark .pass { color: #6cc48a; }
+  .fail { color: #c62828; font-weight: bold; }
+  body.dark .fail { color: #ff8a80; }
+  #summary { font-weight: bold; margin-left: 12px; }
+  .src { font-size: 11px; color: #777; margin-top: 10px; max-width: 900px; }
+</style>
+</head>
+<body>
+<h1>nothing-mtui lab</h1>
+<div class="controls">
+  <input type="color" id="seed" value="#d71921" title="seed color">
+  <label class="drop" id="drop">upload wallpaper image <input type="file" id="file" accept="image/*" hidden></label>
+  <button id="mode">toggle dark</button>
+  <span id="summary"></span>
+</div>
+<div class="seedline">seed from image: <span class="sw" id="seedsw" style="display:none"></span><span id="seedtext">none (using picked color)</span></div>
+<div class="seeds" id="candidates"></div>
+
+<div class="cols">
+  <div class="col">
+    <h3>LEFT — colors resolved through the actual APK resource chain (what the phone shows)</h3>
+    <div class="row" id="apkMocks"></div>
+  </div>
+  <div class="col">
+    <h3>RIGHT — colors from the package (nothingWidgetColors)</h3>
+    <div class="row" id="pkgMocks"></div>
+  </div>
+</div>
+
+<h2>token diff</h2>
+<div id="tables"></div>
+<p class="src">Left resolves the real decompiled resources (values/colors.xml, values-night overlay,
+drawable widget_2x2_bg, quote layout textColor, color-selector indirection, android:lStar) through a
+shim of the Android resource system. Right calls nothingWidgetColors from the package. Image seeds are
+extracted exactly like Material You on a phone: QuantizerCelebi (128 clusters) + Score ranking on the
+decoded pixels, then the AOSP ColorScheme chroma mapping builds the system palettes.</p>
+
+<script type="module">
+import { nothingWidgetColors, paletteFromSeed, withLstar, FALLBACKS } from '../../index.js';
+import { QuantizerCelebi, Score, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
+
+let seed = document.getElementById('seed').value;
+let palette = paletteFromSeed(seed);
+let seedSource = 'picked';
+
+// ---- Android resource shim over the real decompiled fixtures ----
+const read = f => fetch(`../apk-fixtures/${f}`).then(r => r.text());
+const parseTable = xmlText => Object.fromEntries(
+  [...new DOMParser().parseFromString(xmlText, 'text/xml').querySelectorAll('color')]
+    .map(el => [el.getAttribute('name'), el.textContent.trim()]));
+let base, night, colorXml, drawableXml, quoteLayout;
+
+async function loadFixtures() {
+  const [b, n, c, d, q] = await Promise.all([
+    read('values/colors.xml'), read('values-night/colors.xml'),
+    read('color/default_color_background_dark.xml'), read('drawable/widget_2x2_bg.xml'),
+    read('layout/widget_quotes_card_2x2.xml'),
+  ]);
+  base = parseTable(b); night = parseTable(n);
+  colorXml = new DOMParser().parseFromString(c, 'text/xml');
+  drawableXml = new DOMParser().parseFromString(d, 'text/xml');
+  quoteLayout = q;
+}
+await loadFixtures();
+
+function tableFor(mode) { return mode === 'dark' ? { ...base, ...night } : base; }
+
+function resolve(value, mode) {
+  if (value.startsWith('@android:color/')) {
+    const sys = value.slice('@android:color/'.length);
+    if (sys === 'white') return '#ffffff';
+    if (sys === 'black') return '#000000';
+    const m = sys.match(/^system_(neutral1|neutral2|accent1|accent2)_(\d+)$/);
+    if (m) return palette[m[1]][m[2]];
+    throw new Error(`unshimmed system color: ${sys}`);
+  }
+  if (value.startsWith('@color/')) {
+    const name = value.slice('@color/'.length);
+    const t = tableFor(mode);
+    if (name === 'default_color_background_dark') {
+      const item = colorXml.querySelector('item');
+      let v = resolve(item.getAttribute('android:color'), mode);
+      const lstar = item.getAttribute('android:lStar');
+      if (lstar) v = withLstar(v, Number(lstar));
+      return v;
+    }
+    return resolve(t[name], mode);
+  }
+  return value;
+}
+const getColor = (name, mode) => resolve(tableFor(mode)[name], mode);
+const getDrawableColor = mode => resolve(drawableXml.querySelector('solid').getAttribute('android:color'), mode);
+
+const TOKEN_TO_RES = {
+  widgetBg: 'widget_bg_color', settingsBg: 'widget_settings_bg',
+  widgetElements: 'widget_elements_color', widgetFood: 'widget_food_color', widgetIcon: 'widget_icon_color',
+  mediaPageIndicator: 'color_media_page_indicator_default', mediaPageIndicatorSelected: 'color_media_page_indicator_selected',
+  mediaText: 'color_text_enable_authorize_tips', mediaProgress: 'color_music_progress_bar',
+  mediaProgressBg: 'color_music_progress_bar_bg', mediaSwitchIcon: 'color_media_switch_icon',
+  mediaSwitchIconBg: 'color_media_switch_icon_bg', settingsAccent: 'home_settings_header_accent',
+  settingsStateOn: 'home_settings_state_on_color', settingsStateOff: 'home_settings_state_off_color',
+  settingsThumbOff: 'home_settings_thumb_off_color', settingsTrackOff: 'home_settings_track_off_color',
+  settingsTrackOn: 'home_settings_track_on_color',
+};
+
+function apkColors(mode) {
+  const out = { widgetBg: getDrawableColor(mode) };
+  const m = quoteLayout.match(/android:textColor="@color\/(\w+)"/);
+  out.widgetElements = getColor(m[1], mode);
+  for (const [token, res] of Object.entries(TOKEN_TO_RES)) {
+    if (!(token in out)) out[token] = getColor(res, mode);
+  }
+  return out;
+}
+
+// ---- phone-like seed extraction from an image ----
+function extractSeedFromImageData(data, w, h) {
+  const px = [];
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 255) continue;
+    px.push((data[i] << 16) | (data[i + 1] << 8) | data[i + 2] | 0xff000000);
+  }
+  if (!px.length) return { seed: null, candidates: [] };
+  const quantized = QuantizerCelebi.quantize(px, 128);
+  const candidates = Score.score(quantized).slice(0, 5).map(hexFromArgb);
+  return { seed: candidates[0], candidates };
+}
+
+async function extractFromFile(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, err) => { const i = new Image(); i.onload = () => ok(i); i.onerror = err; i.src = url; });
+    const scale = Math.min(1, 256 / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+    const canvas = new OffscreenCanvas(w, h);
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    const data = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+    const r = extractSeedFromImageData(data, w, h);
+    if (r.seed) { seed = r.seed; seedSource = file.name; palette = paletteFromSeed(seed); }
+    showSeed(r.candidates);
+    render();
+    return r.seed;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+function showSeed(candidates = []) {
+  document.getElementById('seedsw').style.display = 'inline-block';
+  document.getElementById('seedsw').style.background = seed;
+  document.getElementById('seedtext').textContent = `${seed} (${seedSource})`;
+  document.getElementById('candidates').innerHTML =
+    candidates.map(c => `<span class="sw" style="background:${c}" title="${c}"></span>`).join('');
+}
+
+// ---- mocks ----
+function mockCard(c) {
+  return `<div class="card" style="background:${c.widgetBg}">
+    <span class="quote" style="color:${c.widgetElements}">&#10077;</span>
+    <p style="color:${c.widgetElements}">Making tech fun again.</p>
+  </div>`;
+}
+function mockSnake(c) {
+  let cells = '';
+  const snakeIdx = [9, 10, 11, 19, 27, 35];
+  for (let i = 0; i < 64; i++) {
+    let col = c.widgetBg;
+    if (snakeIdx.includes(i)) col = c.widgetElements;
+    if (i === 50) col = c.widgetFood;
+    cells += `<div class="cell" style="background:${col}"></div>`;
+  }
+  return `<div class="snake">${cells}</div>`;
+}
+function mockMedia(c) {
+  return `<div class="media">
+    <div class="dots">
+      <span class="dot" style="background:${c.mediaPageIndicatorSelected}"></span>
+      <span class="dot" style="background:${c.mediaPageIndicator}"></span>
+      <span class="dot" style="background:${c.mediaPageIndicator}"></span>
+    </div>
+    <div class="bar" style="background:${c.mediaProgressBg}"><div class="fill" style="background:${c.mediaProgress}"></div></div>
+    <div class="switch" style="background:${c.settingsAccent}"><span class="thumb" style="background:${c.mediaSwitchIconBg}"></span></div>
+    <div class="track" style="background:${c.settingsTrackOff}"><span class="thumb" style="background:${c.settingsThumbOff}"></span></div>
+  </div>`;
+}
+
+let mode = 'light';
+function render() {
+  document.body.classList.toggle('dark', mode === 'dark');
+  const apk = apkColors(mode);
+  const pkg = nothingWidgetColors(palette, mode);
+  document.getElementById('apkMocks').innerHTML = mockCard(apk) + mockSnake(apk) + mockMedia(apk);
+  document.getElementById('pkgMocks').innerHTML = mockCard(pkg) + mockSnake(pkg) + mockMedia(pkg);
+  const td = v => `<td><span class="sw" style="background:${v}"></span>${v ?? 'undefined'}</td>`;
+  const rows = Object.keys(TOKEN_TO_RES).map(name =>
+    `<tr><td>${name}</td>${td(apk[name])}${td(pkg[name])}<td class="${apk[name] === pkg[name] ? 'pass' : 'fail'}">${apk[name] === pkg[name] ? 'MATCH' : 'DIFF'}</td></tr>`).join('');
+  document.getElementById('tables').innerHTML =
+    `<table><tr><th>token</th><th>APK chain</th><th>package</th><th>result</th></tr>${rows}</table>`;
+  const match = Object.keys(TOKEN_TO_RES).filter(n => apk[n] === pkg[n]).length;
+  const total = Object.keys(TOKEN_TO_RES).length;
+  const s = document.getElementById('summary');
+  s.textContent = `${match}/${total} tokens identical (${mode}, seed ${seedSource})`;
+  s.className = match === total ? 'pass' : 'fail';
+  return { match, total };
+}
+
+function setSeedHex(hex) {
+  seed = hex; seedSource = 'picked'; palette = paletteFromSeed(seed);
+  showSeed(); render();
+}
+
+document.getElementById('seed').addEventListener('input', e => setSeedHex(e.target.value));
+document.getElementById('mode').addEventListener('click', () => { mode = mode === 'light' ? 'dark' : 'light'; render(); });
+const fileInput = document.getElementById('file');
+fileInput.addEventListener('change', () => fileInput.files[0] && extractFromFile(fileInput.files[0]));
+const drop = document.getElementById('drop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) extractFromFile(f); });
+
+window.__lab = { render, setSeedHex, extractSeedFromImageData, extractFromFile, get state() { return { seed, seedSource, mode }; } };
+showSeed();
+render();
+</script>
+</body>
+</html>

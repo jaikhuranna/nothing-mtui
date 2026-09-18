@@ -1,0 +1,169 @@
+{
+ "_provenance": "extracted from jadx decompile of com.nothing.communitywidgets-52. java = R.color refs in decompiled code; res = @color/ refs in decompiled resources; fixture = refs in committed layout fixtures",
+ "tokens": {
+  "widgetBg": {
+   "res": "widget_bg_color",
+   "java_refs": [
+    "com/nothing/communitywidgets/snake_game/views/SnakeGameView.java"
+   ],
+   "res_refs": [
+    "drawable/quotes_drawer_preview.xml",
+    "drawable/snake_drawer_preview.xml",
+    "drawable/widget_2x2_bg.xml"
+   ],
+   "fixture_refs": []
+  },
+  "settingsBg": {
+   "res": "widget_settings_bg",
+   "java_refs": [],
+   "res_refs": [
+    "values/styles.xml"
+   ],
+   "fixture_refs": []
+  },
+  "widgetElements": {
+   "res": "widget_elements_color",
+   "java_refs": [
+    "com/nothing/communitywidgets/quotes/utils/QuotesShareActivity.java",
+    "com/nothing/communitywidgets/snake_game/views/SnakeGameView.java"
+   ],
+   "res_refs": [
+    "drawable/quotes_drawer_preview.xml",
+    "drawable/quotes_layout_symbol_active.xml",
+    "drawable/snake_drawer_preview.xml",
+    "drawable/snake_game_element_crown.xml",
+    "layout/widget_quotes_card_2x2.xml",
+    "layout/widget_quotes_card_2x2_share.xml"
+   ],
+   "fixture_refs": [
+    "widget_quotes_card_2x2.xml"
+   ]
+  },
+  "widgetFood": {
+   "res": "widget_food_color",
+   "java_refs": [
+    "com/nothing/communitywidgets/snake_game/views/SnakeGameView.java"
+   ],
+   "res_refs": [],
+   "fixture_refs": []
+  },
+  "widgetIcon": {
+   "res": "widget_icon_color",
+   "java_refs": [],
+   "res_refs": [],
+   "fixture_refs": [],
+   "usage": "declared-only: color defined in colors.xml/values-night, no usage reference in decompiled code/resources"
+  },
+  "mediaPageIndicator": {
+   "res": "color_media_page_indicator_default",
+   "java_refs": [],
+   "res_refs": [
+    "layout/mediaplayer_widget_container.xml"
+   ],
+   "fixture_refs": [
+    "mediaplayer_widget_container.xml"
+   ]
+  },
+  "mediaPageIndicatorSelected": {
+   "res": "color_media_page_indicator_selected",
+   "java_refs": [],
+   "res_refs": [
+    "layout/mediaplayer_widget_container.xml"
+   ],
+   "fixture_refs": [
+    "mediaplayer_widget_container.xml"
+   ]
+  },
+  "mediaText": {
+   "res": "color_text_enable_authorize_tips",
+   "java_refs": [],
+   "res_refs": [
+    "layout/mediaplayer_widget_container.xml"
+   ],
+   "fixture_refs": [
+    "mediaplayer_widget_container.xml"
+   ]
+  },
+  "mediaProgress": {
+   "res": "color_music_progress_bar",
+   "java_refs": [],
+   "res_refs": [
+    "drawable/music_progressbar.xml"
+   ],
+   "fixture_refs": []
+  },
+  "mediaProgressBg": {
+   "res": "color_music_progress_bar_bg",
+   "java_refs": [],
+   "res_refs": [
+    "drawable/music_progressbar.xml"
+   ],
+   "fixture_refs": []
+  },
+  "mediaSwitchIcon": {
+   "res": "color_media_switch_icon",
+   "java_refs": [],
+   "res_refs": [
+    "drawable/media_play_next_icon.xml",
+    "drawable/media_play_previous_icon.xml",
+    "drawable/media_player_page_view_bg.xml"
+   ],
+   "fixture_refs": []
+  },
+  "mediaSwitchIconBg": {
+   "res": "color_media_switch_icon_bg",
+   "java_refs": [],
+   "res_refs": [
+    "drawable/media_player_page_view_bg.xml"
+   ],
+   "fixture_refs": []
+  },
+  "settingsAccent": {
+   "res": "home_settings_header_accent",
+   "java_refs": [],
+   "res_refs": [
+    "values/styles.xml"
+   ],
+   "fixture_refs": []
+  },
+  "settingsStateOn": {
+   "res": "home_settings_state_on_color",
+   "java_refs": [],
+   "res_refs": [
+    "color/home_settings_switch_thumb_color.xml"
+   ],
+   "fixture_refs": []
+  },
+  "settingsStateOff": {
+   "res": "home_settings_state_off_color",
+   "java_refs": [],
+   "res_refs": [],
+   "fixture_refs": [],
+   "usage": "declared-only: color defined in colors.xml/values-night, no usage reference in decompiled code/resources"
+  },
+  "settingsThumbOff": {
+   "res": "home_settings_thumb_off_color",
+   "java_refs": [],
+   "res_refs": [
+    "color/home_settings_switch_thumb_color.xml"
+   ],
+   "fixture_refs": []
+  },
+  "settingsTrackOff": {
+   "res": "home_settings_track_off_color",
+   "java_refs": [],
+   "res_refs": [
+    "color/home_settings_switch_track_color.xml"
+   ],
+   "fixture_refs": []
+  },
+  "settingsTrackOn": {
+   "res": "home_settings_track_on_color",
+   "java_refs": [],
+   "res_refs": [
+    "color/home_settings_switch_track_color.xml"
+   ],
+   "fixture_refs": []
+  }
+ }
+}

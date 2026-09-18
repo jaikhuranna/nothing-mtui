@@ -11,29 +11,15 @@ const parseColors = xml => Object.fromEntries(
 const base = parseColors(read('values/colors.xml'));
 const night = parseColors(read('values-night/colors.xml'));
 const colorXml = read('color/default_color_background_dark.xml');
+const tokenMap = JSON.parse(readFileSync('scripts/token-map.json', 'utf8'));
 
-// token -> APK resource name, transcribed from decompiled Java call sites
-// (SnakeGameView.java:258-267, NTPageIndicatorDot attrs, quotes/mediaplayer layouts)
-const TOKEN_TO_RES = {
-  widgetBg: 'widget_bg_color',
-  settingsBg: 'widget_settings_bg',
-  widgetElements: 'widget_elements_color',
-  widgetFood: 'widget_food_color',
-  widgetIcon: 'widget_icon_color',
-  mediaPageIndicator: 'color_media_page_indicator_default',
-  mediaPageIndicatorSelected: 'color_media_page_indicator_selected',
-  mediaText: 'color_text_enable_authorize_tips',
-  mediaProgress: 'color_music_progress_bar',
-  mediaProgressBg: 'color_music_progress_bar_bg',
-  mediaSwitchIcon: 'color_media_switch_icon',
-  mediaSwitchIconBg: 'color_media_switch_icon_bg',
-  settingsAccent: 'home_settings_header_accent',
-  settingsStateOn: 'home_settings_state_on_color',
-  settingsStateOff: 'home_settings_state_off_color',
-  settingsThumbOff: 'home_settings_thumb_off_color',
-  settingsTrackOff: 'home_settings_track_off_color',
-  settingsTrackOn: 'home_settings_track_on_color',
-};
+// Cross-check: every token's resource must be referenced by decompiled code,
+// decompiled resources, committed fixtures, or be declared-only (flagged).
+for (const [token, v] of Object.entries(tokenMap.tokens)) {
+  assert.ok(
+    v.java_refs.length + v.res_refs.length + (v.fixture_refs?.length ?? 0) > 0 || v.usage,
+    `${token}: unproven resource reference`);
+}
 
 function extract(value, mode, seen = new Set()) {
   assert.ok(!seen.has(value + mode), `cycle: ${value}`);
@@ -49,9 +35,11 @@ function extract(value, mode, seen = new Set()) {
   if (value.startsWith('@color/')) {
     const name = value.slice('@color/'.length);
     if (name === 'default_color_background_dark') {
-      // selector item carries android:lStar="12"; ignored, tone 900 neutral already sits at L*~12
-      const item = colorXml.match(/android:color="([^"]+)"/)[1];
-      return extract(item, mode, seen);
+      const item = colorXml.match(/<item[^>]*android:color="([^"]+)"[^>]*>/)[1];
+      const lstar = colorXml.match(/android:lStar="(\d+)"/);
+      const out = extract(item, mode, seen);
+      if (lstar) out.lstar = Number(lstar[1]);
+      return out;
     }
     const table = mode === 'dark' ? { ...base, ...night } : base;
     assert.ok(name in table, `missing resource: ${name}`);
@@ -59,6 +47,9 @@ function extract(value, mode, seen = new Set()) {
   }
   return { static: value };
 }
+
+const TOKEN_TO_RES = Object.fromEntries(
+  Object.entries(tokenMap.tokens).map(([token, v]) => [token, v.res]));
 
 let fails = 0;
 for (const mode of ['light', 'dark']) {
@@ -76,4 +67,4 @@ for (const mode of ['light', 'dark']) {
 assert.equal(Object.keys(TOKENS.light).length, Object.keys(TOKEN_TO_RES).length, 'token set drift');
 assert.equal(Object.keys(TOKENS.dark).length, Object.keys(TOKEN_TO_RES).length, 'token set drift');
 assert.equal(fails, 0, `${fails} token mappings differ from APK XML`);
-console.log('ok: package TOKENS match APK XML extraction, both modes');
+console.log('ok: package TOKENS match APK XML extraction (incl. lStar), provenance verified');

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { nothingWidgetColors, TOKENS } from './index.js';
+import { nothingWidgetColors, paletteFromSeed, TOKENS } from './index.js';
 
 for (const mode of ['light', 'dark']) {
   const colors = nothingWidgetColors(null, mode);
@@ -12,18 +12,25 @@ for (const mode of ['light', 'dark']) {
 const light = nothingWidgetColors(null, 'light');
 const dark = nothingWidgetColors(null, 'dark');
 
-assert.equal(light.widgetBg, '#e5e5e5');
-assert.equal(dark.widgetBg, '#1b1b1b');
+assert.equal(light.widgetBg, '#f1f0f4');
+assert.equal(dark.widgetBg, '#1a1c1e');
 assert.equal(light.widgetElements, '#000000');
 assert.equal(dark.widgetElements, '#ffffff');
 assert.equal(light.widgetFood, '#d71921');
 assert.equal(dark.widgetFood, '#d71921');
-assert.equal(light.mediaPageIndicator, '#b8b8b8');
-assert.equal(dark.mediaPageIndicator, '#565656');
-assert.equal(dark.mediaPageIndicatorSelected, '#0f0f0f');
-assert.equal(light.settingsTrackOff, '#565656');
-assert.equal(dark.settingsTrackOff, '#3f3f3f');
-assert.equal(dark.settingsTrackOn, '#3f3f3f');
+assert.equal(light.mediaPageIndicator, '#c6c6ca');
+assert.equal(dark.mediaPageIndicatorSelected, '#fdfcff');
+assert.equal(light.settingsTrackOff, '#5a5e66');
+assert.equal(dark.settingsTrackOff, '#46474a');
+assert.equal(dark.settingsTrackOn, '#3c4758');
+assert.equal(light.settingsBg, '#f1f0f4');
+assert.equal(dark.settingsBg, '#1e2022', 'lStar=12 applied to neutral1_900');
+
+// seed string generates the same palette object
+assert.equal(nothingWidgetColors('#d71921', 'light').widgetBg, '#fbeeec');
+assert.deepEqual(
+  nothingWidgetColors('#d71921', 'dark'),
+  nothingWidgetColors(paletteFromSeed('#d71921'), 'dark'));
 
 const palette = { neutral1: { 50: '#fafafa', 900: '#111111', 10: '#0a0a0a' } };
 assert.equal(nothingWidgetColors(palette, 'light').widgetBg, '#fafafa');
