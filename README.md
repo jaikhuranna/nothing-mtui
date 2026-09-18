@@ -4,8 +4,10 @@ Nothing widget color tokens, lifted from `com.nothing.communitywidgets-52` (res/
 
 Logic found in the APK: widget backgrounds use Android Material You dynamic
 neutrals (`@android:color/system_neutral1_50` light / `_900` dark), elements stay
-monochrome black/white, accents use `system_accent1/accent2`. Dark mode swaps two
-values via `values-night`.
+monochrome black/white, accents use `system_accent1/accent2`. Dark tones are
+lifted from `values-night/colors.xml`; tones not overridden there resolve
+against the dark palette (modeled as the same tone). One nuance: dark
+`widget_settings_bg` forces lStar=12 in the APK, modeled here as plain tone 900.
 
 ## Usage
 
@@ -26,7 +28,7 @@ static approximations.
 
 ## Tokens
 
-- `widgetBg`, `widgetElements`, `widgetFood`, `widgetIcon`
+- `widgetBg`, `settingsBg`, `widgetElements`, `widgetFood`, `widgetIcon`
 - `mediaPageIndicator`, `mediaPageIndicatorSelected`, `mediaText`, `mediaProgress`, `mediaProgressBg`, `mediaSwitchIcon`, `mediaSwitchIconBg`
 - `settingsAccent`, `settingsStateOn`, `settingsStateOff`, `settingsThumbOff`, `settingsTrackOff`, `settingsTrackOn`
 

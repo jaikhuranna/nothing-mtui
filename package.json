@@ -4,6 +4,7 @@
   "description": "Nothing widget Material You color tokens, lifted from com.nothing.communitywidgets",
   "type": "module",
   "main": "index.js",
+  "exports": "./index.js",
   "files": [
     "index.js",
     "README.md"
