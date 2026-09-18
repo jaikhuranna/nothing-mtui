@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nothing-mtui sample test</title>
+<style>
+  body { font-family: ui-monospace, Menlo, monospace; background: #f2f2f2; color: #111; margin: 0; padding: 24px; }
+  body.dark { background: #121212; color: #eee; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  h2 { font-size: 14px; margin: 20px 0 8px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .card { width: 172px; height: 172px; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; }
+  .card .quote { font-size: 34px; line-height: 1; }
+  .card p { font-size: 11px; margin: 10px 0 0; max-width: 120px; text-align: center; }
+  .snake { display: grid; grid-template-columns: repeat(8, 16px); grid-template-rows: repeat(8, 16px); gap: 2px; }
+  .cell { width: 16px; height: 16px; }
+  .media { display: flex; flex-direction: column; gap: 12px; }
+  .bar { width: 120px; height: 6px; border-radius: 3px; position: relative; }
+  .bar .fill { position: absolute; inset: 0 40% 0 0; border-radius: 3px; }
+  .dots { display: flex; gap: 8px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .switch { width: 34px; height: 18px; border-radius: 9px; display: flex; align-items: center; padding: 2px; box-sizing: border-box; }
+  .switch .thumb { width: 14px; height: 14px; border-radius: 50%; }
+  .track { width: 34px; height: 12px; border-radius: 6px; display: flex; align-items: center; padding: 2px; box-sizing: border-box; }
+  .track .thumb { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; }
+  table { border-collapse: collapse; font-size: 12px; margin-top: 4px; }
+  th, td { border: 1px solid #999; padding: 3px 8px; text-align: left; }
+  body.dark th, body.dark td { border-color: #444; }
+  .sw { display: inline-block; width: 12px; height: 12px; border: 1px solid currentColor; vertical-align: middle; margin-right: 5px; }
+  .pass { color: #1a7f37; font-weight: bold; }
+  body.dark .pass { color: #6cc48a; }
+  .fail { color: #c62828; font-weight: bold; }
+  body.dark .fail { color: #ff8a80; }
+  #summary { font-weight: bold; margin-left: 12px; }
+  button { font: inherit; padding: 4px 12px; }
+</style>
+</head>
+<body>
+<h1>nothing-mtui widget color test</h1>
+<button id="mode">toggle dark</button><span id="summary"></span>
+
+<h2>widgets rendered with package colors</h2>
+<div class="row" id="mocks"></div>
+
+<h2>package output vs decompiled APK mapping</h2>
+<div id="tables"></div>
+
+<script type="module">
+import { nothingWidgetColors } from '../index.js';
+
+// Emulated Material You wallpaper palette (Nothing-style: neutral grays + red accent).
+// Same palette both modes; Android picks indices per mode, so does the package.
+const PALETTE = {
+  neutral1: { 10: '#0f0f10', 50: '#e5e5e5', 100: '#cfcfcf', 200: '#b8b8b8', 600: '#565656', 700: '#3f3f3f', 800: '#2c2c2c', 900: '#1b1b1b' },
+  neutral2: { 100: '#e0e0e0', 300: '#9e9e9e', 600: '#565656' },
+  accent1: { 100: '#ffdad6', 600: '#c02929', 700: '#a52121' },
+  accent2: { 100: '#ffd9d9', 700: '#a53434' },
+};
+
+// Reference copied independently from decompiled APK:
+// res/values/colors.xml (light) and res/values-night/colors.xml (dark).
+const APK = {
+  light: {
+    widgetBg: ['neutral1', 50], settingsBg: ['neutral1', 50],
+    widgetElements: '#000000', widgetFood: '#d71921', widgetIcon: '#ffffff',
+    mediaPageIndicator: ['neutral1', 200], mediaPageIndicatorSelected: ['neutral1', 800],
+    mediaText: ['neutral1', 900], mediaProgress: ['neutral1', 900], mediaProgressBg: ['neutral1', 100],
+    mediaSwitchIcon: ['neutral1', 900], mediaSwitchIconBg: ['neutral1', 100],
+    settingsAccent: ['accent1', 600], settingsStateOn: ['accent1', 100], settingsStateOff: ['accent2', 100],
+    settingsThumbOff: ['neutral2', 100], settingsTrackOff: ['neutral2', 600], settingsTrackOn: ['accent1', 600],
+  },
+  dark: {
+    widgetBg: ['neutral1', 900], settingsBg: ['neutral1', 900],
+    widgetElements: '#ffffff', widgetFood: '#d71921', widgetIcon: '#ffffff',
+    mediaPageIndicator: ['neutral1', 600], mediaPageIndicatorSelected: ['neutral1', 10],
+    mediaText: ['neutral1', 50], mediaProgress: ['neutral1', 50], mediaProgressBg: ['neutral1', 800],
+    mediaSwitchIcon: ['neutral1', 50], mediaSwitchIconBg: ['neutral1', 800],
+    settingsAccent: ['accent1', 100], settingsStateOn: ['accent1', 100], settingsStateOff: ['accent2', 100],
+    settingsThumbOff: ['neutral2', 300], settingsTrackOff: ['neutral1', 700], settingsTrackOn: ['accent2', 700],
+  },
+};
+
+const apKValue = ref => Array.isArray(ref) ? PALETTE[ref[0]][ref[1]] : ref;
+
+function mockCard(c) {
+  return `<div class="card" style="background:${c.widgetBg}">
+    <span class="quote" style="color:${c.widgetElements}">&#10077;</span>
+    <p style="color:${c.widgetElements}">Making tech fun again.</p>
+  </div>`;
+}
+
+function mockSnake(c) {
+  let cells = '';
+  const snakeIdx = [9, 10, 11, 19, 27, 35];
+  for (let i = 0; i < 64; i++) {
+    let col = c.widgetBg;
+    if (snakeIdx.includes(i)) col = c.widgetElements;
+    if (i === 50) col = c.widgetFood;
+    cells += `<div class="cell" style="background:${col}"></div>`;
+  }
+  return `<div class="snake">${cells}</div>`;
+}
+
+function mockMedia(c) {
+  return `<div class="media">
+    <div class="dots">
+      <span class="dot" style="background:${c.mediaPageIndicatorSelected}"></span>
+      <span class="dot" style="background:${c.mediaPageIndicator}"></span>
+      <span class="dot" style="background:${c.mediaPageIndicator}"></span>
+    </div>
+    <div class="bar" style="background:${c.mediaProgressBg}"><div class="fill" style="background:${c.mediaProgress}"></div></div>
+    <div class="switch" style="background:${c.settingsAccent}"><span class="thumb" style="background:${c.mediaSwitchIconBg}"></span></div>
+    <div class="track" style="background:${c.settingsTrackOff}"><span class="thumb" style="background:${c.settingsThumbOff}"></span></div>
+  </div>`;
+}
+
+function render(mode) {
+  document.body.classList.toggle('dark', mode === 'dark');
+  const pkg = nothingWidgetColors(PALETTE, mode);
+  const apk = APK[mode];
+  const apkResolved = Object.fromEntries(Object.entries(apk).map(([k, v]) => [k, apKValue(v)]));
+
+  document.getElementById('mocks').innerHTML =
+    mockCard(pkg) + mockSnake(pkg) + mockMedia(pkg);
+
+  const rows = Object.keys(apk).map(name => {
+    const ok = apkResolved[name] === pkg[name];
+    const td = v => `<td><span class="sw" style="background:${v}"></span>${v ?? 'undefined'}</td>`;
+    return `<tr><td>${name}</td>${td(apkResolved[name])}${td(pkg[name])}<td class="${ok ? 'pass' : 'fail'}">${ok ? 'PASS' : 'FAIL'}</td></tr>`;
+  }).join('');
+
+  const names = Object.keys(apk);
+  const pass = names.filter(n => apkResolved[n] === pkg[n]).length;
+  document.getElementById('tables').innerHTML =
+    `<table><tr><th>token</th><th>APK</th><th>package</th><th>result</th></tr>${rows}</table>`;
+  const s = document.getElementById('summary');
+  s.textContent = `${pass}/${names.length} tokens match (${mode})`;
+  s.className = pass === names.length ? 'pass' : 'fail';
+  return pass;
+}
+
+render('light');
+document.getElementById('mode').addEventListener('click', () => {
+  const dark = !document.body.classList.contains('dark');
+  render(dark ? 'dark' : 'light');
+});
+window.__test = { render };
+</script>
+</body>
+</html>
