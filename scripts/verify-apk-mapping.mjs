@@ -14,11 +14,19 @@ const colorXml = read('color/default_color_background_dark.xml');
 const tokenMap = JSON.parse(readFileSync('scripts/token-map.json', 'utf8'));
 
 // Cross-check: every token's resource must be referenced by decompiled code,
-// decompiled resources, committed fixtures, or be declared-only (flagged).
+// decompiled resources, or committed fixtures. `declared_only` tokens are
+// exempt but must still be declared in colors.xml, and are reported below so
+// the exemption stays visible rather than silently absorbing a typo.
+const declaredOnly = [];
 for (const [token, v] of Object.entries(tokenMap.tokens)) {
-  assert.ok(
-    v.java_refs.length + v.res_refs.length + (v.fixture_refs?.length ?? 0) > 0 || v.usage,
-    `${token}: unproven resource reference`);
+  const refs = (v.java_refs?.length ?? 0) + (v.res_refs?.length ?? 0) + (v.fixture_refs?.length ?? 0);
+  if (v.declared_only === true) {
+    assert.ok(refs === 0, `${token}: marked declared_only but has ${refs} refs`);
+    assert.ok(v.res in base, `${token}: declared_only but ${v.res} is not in values/colors.xml`);
+    declaredOnly.push(token);
+    continue;
+  }
+  assert.ok(refs > 0, `${token}: unproven resource reference`);
 }
 
 function extract(value, mode, seen = new Set()) {
@@ -35,8 +43,9 @@ function extract(value, mode, seen = new Set()) {
   if (value.startsWith('@color/')) {
     const name = value.slice('@color/'.length);
     if (name === 'default_color_background_dark') {
-      const item = colorXml.match(/<item[^>]*android:color="([^"]+)"[^>]*>/)[1];
-      const lstar = colorXml.match(/android:lStar="(\d+)"/);
+      const itemTag = colorXml.match(/<item[^>]*>/)[0];
+      const item = itemTag.match(/android:color="([^"]+)"/)[1];
+      const lstar = itemTag.match(/android:lStar="([\d.]+)"/);
       const out = extract(item, mode, seen);
       if (lstar) out.lstar = Number(lstar[1]);
       return out;
@@ -67,4 +76,5 @@ for (const mode of ['light', 'dark']) {
 assert.equal(Object.keys(TOKENS.light).length, Object.keys(TOKEN_TO_RES).length, 'token set drift');
 assert.equal(Object.keys(TOKENS.dark).length, Object.keys(TOKEN_TO_RES).length, 'token set drift');
 assert.equal(fails, 0, `${fails} token mappings differ from APK XML`);
-console.log('ok: package TOKENS match APK XML extraction (incl. lStar), provenance verified');
+console.log(`ok: package TOKENS match APK XML extraction (incl. lStar), provenance verified`);
+console.log(`declared-only (no code/resource reference found): ${declaredOnly.join(', ') || 'none'}`);

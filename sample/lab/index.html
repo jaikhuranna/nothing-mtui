@@ -81,11 +81,33 @@ decoded pixels, then the AOSP ColorScheme chroma mapping builds the system palet
 
 <script type="module">
 import { nothingWidgetColors, paletteFromSeed, withLstar, FALLBACKS } from '../../index.js';
-import { QuantizerCelebi, Score, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
+import { Hct, QuantizerCelebi, Score, TonalPalette, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
 
 let seed = document.getElementById('seed').value;
 let palette = paletteFromSeed(seed);
 let seedSource = 'picked';
+
+// The APK side must not resolve system_* through the package's own palette, or
+// the MATCH/DIFF table is circular and can only validate the token->resource
+// map. This is a deliberate second implementation of the AOSP wallpaper spec;
+// the package reaches the same values via CorePalette.of.
+let refCache = { seed: null, palette: null };
+function refPalette() {
+  if (refCache.seed !== seed) {
+    const proposed = Hct.fromInt(argbFromHex(seed));
+    const src = Hct.fromInt(argbFromHex(proposed.chroma < 5 ? '#1b6ef3' : seed));
+    refCache = {
+      seed,
+      palette: {
+        neutral1: TonalPalette.fromHueAndChroma(src.hue, 4),
+        neutral2: TonalPalette.fromHueAndChroma(src.hue, 8),
+        accent1: TonalPalette.fromHueAndChroma(src.hue, Math.max(48, src.chroma)),
+        accent2: TonalPalette.fromHueAndChroma(src.hue, 16),
+      },
+    };
+  }
+  return refCache.palette;
+}
 
 // ---- Android resource shim over the real decompiled fixtures ----
 const read = f => fetch(`../apk-fixtures/${f}`).then(r => r.text());
@@ -109,13 +131,15 @@ await loadFixtures();
 
 function tableFor(mode) { return mode === 'dark' ? { ...base, ...night } : base; }
 
-function resolve(value, mode) {
+function resolve(value, mode, seen = new Set()) {
+  if (seen.has(value + mode)) throw new Error(`cycle: ${value}`);
+  seen.add(value + mode);
   if (value.startsWith('@android:color/')) {
     const sys = value.slice('@android:color/'.length);
     if (sys === 'white') return '#ffffff';
     if (sys === 'black') return '#000000';
     const m = sys.match(/^system_(neutral1|neutral2|accent1|accent2)_(\d+)$/);
-    if (m) return palette[m[1]][m[2]];
+    if (m) return hexFromArgb(refPalette()[m[1]].tone(100 - Number(m[2]) / 10));
     throw new Error(`unshimmed system color: ${sys}`);
   }
   if (value.startsWith('@color/')) {
@@ -123,12 +147,13 @@ function resolve(value, mode) {
     const t = tableFor(mode);
     if (name === 'default_color_background_dark') {
       const item = colorXml.querySelector('item');
-      let v = resolve(item.getAttribute('android:color'), mode);
+      let v = resolve(item.getAttribute('android:color'), mode, seen);
       const lstar = item.getAttribute('android:lStar');
       if (lstar) v = withLstar(v, Number(lstar));
       return v;
     }
-    return resolve(t[name], mode);
+    if (!(name in t)) throw new Error(`missing resource: ${name}`);
+    return resolve(t[name], mode, seen);
   }
   return value;
 }
@@ -166,7 +191,7 @@ function extractSeedFromImageData(data, w, h) {
   }
   if (!px.length) return { seed: null, candidates: [] };
   const quantized = QuantizerCelebi.quantize(px, 128);
-  const candidates = Score.score(quantized).slice(0, 5).map(hexFromArgb);
+  const candidates = Score.score(quantized, { desired: 5 }).map(hexFromArgb);
   return { seed: candidates[0], candidates };
 }
 

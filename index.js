@@ -1,24 +1,50 @@
-import { Hct, TonalPalette, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
+import { CorePalette, Hct, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
 
 // --- Material You palette generation (@material/material-color-utilities) ---
-// AOSP SystemColors mapping (frameworks/base ColorScheme.java): wallpaper hue
-// with fixed chromas. system_(key)_N resolves to tonal palette tone 100 - N/10.
-const TONES = [10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900];
+// AOSP SystemColors mapping (frameworks/base ColorScheme): wallpaper seed ->
+// CorePalette. system_(key)_N resolves to tonal palette tone 100 - N/10.
+const TONES = [0, 10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 
-export function paletteFromSeed(seed) {
-  const hct = Hct.fromInt(argbFromHex(seed));
-  const palettes = {
-    neutral1: TonalPalette.fromHueAndChroma(hct.hue, 4),
-    neutral2: TonalPalette.fromHueAndChroma(hct.hue, 8),
-    accent1: TonalPalette.fromHueAndChroma(hct.hue, Math.max(48, hct.chroma)),
-    accent2: TonalPalette.fromHueAndChroma(hct.hue, Math.max(16, hct.chroma / 3)),
-  };
+// A near-grey wallpaper has no meaningful hue, so AOSP swaps in a fixed blue
+// rather than amplifying whatever hue the quantizer happened to land on.
+const GOOGLE_BLUE = '#1b6ef3';
+const MIN_SEED_CHROMA = 5;
+
+function expand(sources) {
   const out = {};
-  for (const [key, p] of Object.entries(palettes)) {
+  for (const [key, palette] of Object.entries(sources)) {
     out[key] = {};
-    for (const n of TONES) out[key][n] = hexFromArgb(p.tone(100 - n / 10));
+    for (const n of TONES) out[key][n] = hexFromArgb(palette.tone(100 - n / 10));
   }
   return out;
+}
+
+export function paletteFromSeed(seed) {
+  let argb = argbFromHex(seed);
+  if (Hct.fromInt(argb).chroma < MIN_SEED_CHROMA) argb = argbFromHex(GOOGLE_BLUE);
+  const core = CorePalette.of(argb);
+  return expand({ neutral1: core.n1, neutral2: core.n2, accent1: core.a1, accent2: core.a2 });
+}
+
+// themeFromSourceColor/themeFromImage return the same CorePalette under
+// Material's names: primary/secondary are AOSP's accent1/accent2, and
+// neutral/neutralVariant are neutral1/neutral2. When the theme carries its
+// source color, recompute through paletteFromSeed instead of trusting
+// theme.palettes directly, so the low-chroma-seed fallback still applies —
+// theme.palettes was built by CorePalette.of(source) with no such fallback.
+// Without a source (a caller passed the bare palettes object), that fallback
+// can't be recovered and theme.palettes is used as-is.
+export function paletteFromTheme(theme) {
+  if (theme?.source !== undefined) return paletteFromSeed(hexFromArgb(theme.source));
+  const p = theme.palettes ?? theme;
+  return expand({ neutral1: p.neutral, neutral2: p.neutralVariant, accent1: p.primary, accent2: p.secondary });
+}
+
+function isThemeLike(palette) {
+  if (!palette) return false;
+  if (palette.source !== undefined) return true;
+  const p = palette.palettes ?? palette;
+  return p?.primary !== undefined || p?.neutral !== undefined;
 }
 
 // lStar attribute (android:lStar) forces CIE L*, preserving hue/chroma.
@@ -82,9 +108,11 @@ export const TOKENS = {
   },
 };
 
-// palette: Material You palette object or a seed hex color
+// palette: a seed hex, a material-color-utilities Theme, or a resolved
+// { neutral1: {tone: hex}, ... } palette object.
 export function nothingWidgetColors(palette, mode = 'light') {
   if (typeof palette === 'string') palette = paletteFromSeed(palette);
+  else if (isThemeLike(palette)) palette = paletteFromTheme(palette);
   const tokens = TOKENS[mode];
   if (!tokens) throw new Error(`unknown mode: ${mode}`);
   const out = {};
@@ -95,7 +123,7 @@ export function nothingWidgetColors(palette, mode = 'light') {
     }
     const [key, tone] = token.tone;
     const hex = palette?.[key]?.[tone] ?? FALLBACKS[`${key}_${tone}`];
-    out[name] = token.lstar ? withLstar(hex, token.lstar) : hex;
+    out[name] = token.lstar !== undefined ? withLstar(hex, token.lstar) : hex;
   }
   return out;
 }

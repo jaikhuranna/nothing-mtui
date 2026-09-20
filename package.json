@@ -19,6 +19,14 @@
     "widgets",
     "colors"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaikhuranna/nothing-mtui.git"
+  },
+  "homepage": "https://github.com/jaikhuranna/nothing-mtui#readme",
+  "bugs": {
+    "url": "https://github.com/jaikhuranna/nothing-mtui/issues"
+  },
   "license": "MIT",
   "dependencies": {
     "@material/material-color-utilities": "^0.2.7"

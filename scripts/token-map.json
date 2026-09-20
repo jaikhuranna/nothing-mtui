@@ -52,7 +52,8 @@
    "java_refs": [],
    "res_refs": [],
    "fixture_refs": [],
-   "usage": "declared-only: color defined in colors.xml/values-night, no usage reference in decompiled code/resources"
+   "usage": "declared-only: color defined in colors.xml/values-night, no usage reference in decompiled code/resources",
+   "declared_only": true
   },
   "mediaPageIndicator": {
    "res": "color_media_page_indicator_default",
@@ -139,7 +140,8 @@
    "java_refs": [],
    "res_refs": [],
    "fixture_refs": [],
-   "usage": "declared-only: color defined in colors.xml/values-night, no usage reference in decompiled code/resources"
+   "usage": "declared-only: color defined in colors.xml/values-night, no usage reference in decompiled code/resources",
+   "declared_only": true
   },
   "settingsThumbOff": {
    "res": "home_settings_thumb_off_color",

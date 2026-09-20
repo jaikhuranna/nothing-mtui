@@ -1,3 +1,4 @@
 extracted/
 *.xapk
 node_modules/
+.tooling/
