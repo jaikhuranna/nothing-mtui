@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Hct, TonalPalette, argbFromHex, hexFromArgb, themeFromSourceColor } from '@material/material-color-utilities';
+import { Hct, SchemeTonalSpot, TonalPalette, argbFromHex, hexFromArgb, themeFromSourceColor } from '@material/material-color-utilities';
 import { FALLBACKS, nothingWidgetColors, paletteFromSeed, paletteFromTheme, TOKENS, withLstar } from './index.js';
 
 for (const mode of ['light', 'dark']) {
@@ -13,22 +13,22 @@ for (const mode of ['light', 'dark']) {
 const light = nothingWidgetColors(null, 'light');
 const dark = nothingWidgetColors(null, 'dark');
 
-assert.equal(light.widgetBg, '#f1f0f4');
-assert.equal(dark.widgetBg, '#1a1c1e');
+assert.equal(light.widgetBg, '#eff0f7');
+assert.equal(dark.widgetBg, '#191c20');
 assert.equal(light.widgetElements, '#000000');
 assert.equal(dark.widgetElements, '#ffffff');
 assert.equal(light.widgetFood, '#d71921');
 assert.equal(dark.widgetFood, '#d71921');
-assert.equal(light.mediaPageIndicator, '#c6c6ca');
+assert.equal(light.mediaPageIndicator, '#c5c6cc');
 assert.equal(dark.mediaPageIndicatorSelected, '#fdfcff');
 assert.equal(light.settingsTrackOff, '#5a5e66');
-assert.equal(dark.settingsTrackOff, '#46474a');
+assert.equal(dark.settingsTrackOff, '#44474c');
 assert.equal(dark.settingsTrackOn, '#3c4758');
-assert.equal(light.settingsBg, '#f1f0f4');
-assert.equal(dark.settingsBg, '#1e2022', 'lStar=12 applied to neutral1_900');
+assert.equal(light.settingsBg, '#eff0f7');
+assert.equal(dark.settingsBg, '#1d2024', 'lStar=12 applied to neutral1_900');
 
 // seed string generates the same palette object
-assert.equal(nothingWidgetColors('#d71921', 'light').widgetBg, '#fbeeec');
+assert.equal(nothingWidgetColors('#d71921', 'light').widgetBg, '#ffedea');
 assert.deepEqual(
   nothingWidgetColors('#d71921', 'dark'),
   nothingWidgetColors(paletteFromSeed('#d71921'), 'dark'));
@@ -39,16 +39,18 @@ assert.equal(nothingWidgetColors(palette, 'dark').widgetBg, '#111111');
 assert.equal(nothingWidgetColors(palette, 'dark').mediaPageIndicatorSelected, '#0a0a0a');
 assert.equal(nothingWidgetColors(palette, 'light').widgetElements, '#000000', 'static survives palette');
 
-// accent2 uses AOSP's fixed chroma 16, not the content-scheme chroma/3. A
-// high-chroma seed is the only place the two formulas disagree.
-{
-  const seed = '#d71921';
-  const hct = Hct.fromInt(argbFromHex(seed));
-  assert.ok(hct.chroma / 3 > 16, 'seed must be chromatic enough to tell the formulas apart');
-  const a2 = paletteFromSeed(seed).accent2;
-  const want = TonalPalette.fromHueAndChroma(hct.hue, 16);
-  for (const shade of [100, 500, 700]) {
-    assert.equal(a2[shade], hexFromArgb(want.tone(100 - shade / 10)), `accent2_${shade} fixed chroma 16`);
+// Chromas Android 14-16 use for the system palette (SchemeTonalSpot, per
+// frameworks/libs/systemui ColorScheme). Written out here rather than read from
+// the library, so a wrong scheme in index.js can't pass by agreeing with itself.
+const ANDROID_14_CHROMA = { neutral1: 6, neutral2: 8, accent1: 36, accent2: 16 };
+for (const seed of ['#d71921', '#2e7d32', '#8a8f99', '#1b6ef3']) {
+  const hue = Hct.fromInt(argbFromHex(seed)).hue;
+  const palette = paletteFromSeed(seed);
+  for (const [key, chroma] of Object.entries(ANDROID_14_CHROMA)) {
+    const want = TonalPalette.fromHueAndChroma(hue, chroma);
+    for (const shade of [0, 10, 50, 100, 500, 900, 1000]) {
+      assert.equal(palette[key][shade], hexFromArgb(want.tone(100 - shade / 10)), `${seed} ${key}_${shade}`);
+    }
   }
 }
 
@@ -88,12 +90,30 @@ for (const seed of ['#d71921', '#888888']) {
 // through to generic FALLBACKS.
 {
   const theme = themeFromSourceColor(argbFromHex('#d71921'));
-  const viaTheme = nothingWidgetColors(theme, 'light');
   const viaBarePalettes = nothingWidgetColors(theme.palettes, 'light');
   assert.notEqual(viaBarePalettes.widgetBg, FALLBACKS.neutral1_50, 'bare palettes must not fall back to FALLBACKS');
   assert.deepEqual(viaBarePalettes, nothingWidgetColors(paletteFromTheme(theme.palettes), 'light'));
 }
 
+// ARGB numbers are what sourceColorFromImage and theme.source hand back.
+assert.deepEqual(nothingWidgetColors(0xffd71921, 'light'), nothingWidgetColors('#d71921', 'light'));
+
+// A DynamicScheme is used as-is, and SchemeTonalSpot is what Android 14+ builds.
+assert.deepEqual(
+  nothingWidgetColors(new SchemeTonalSpot(Hct.fromInt(argbFromHex('#d71921')), true, 0), 'dark'),
+  nothingWidgetColors('#d71921', 'dark'));
+
+// Anything unrecognized should fail loudly rather than quietly return grey fallbacks.
+const scheme = themeFromSourceColor(argbFromHex('#d71921')).schemes.dark;
+assert.throws(() => nothingWidgetColors(scheme, 'dark'), TypeError, 'a Scheme is not a palette');
+assert.throws(() => nothingWidgetColors({ foo: 1 }, 'dark'), /unrecognized palette/);
+assert.throws(() => nothingWidgetColors(true, 'dark'), TypeError);
+for (const bad of ['red', '#ff000080', '#12345', '']) {
+  assert.throws(() => nothingWidgetColors(bad, 'light'), TypeError, `bad seed ${bad}`);
+}
+assert.equal(nothingWidgetColors('#f00', 'light').widgetFood, '#d71921', 'short hex is accepted');
+
 assert.throws(() => nothingWidgetColors(null, 'Dark'), /unknown mode/);
+assert.throws(() => nothingWidgetColors(null, 'toString'), /unknown mode/);
 
 console.log('ok');

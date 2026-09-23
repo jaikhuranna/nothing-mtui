@@ -68,6 +68,7 @@ let fails = 0;
 for (const mode of ['light', 'dark']) {
   for (const [token, res] of Object.entries(TOKEN_TO_RES)) {
     const table = mode === 'dark' ? { ...base, ...night } : base;
+    assert.ok(res in table, `${token}: resource ${res} not found in the ${mode} colors.xml`);
     const expected = extract(table[res], mode);
     const actual = TOKENS[mode][token];
     const ok = JSON.stringify(expected) === JSON.stringify(actual);

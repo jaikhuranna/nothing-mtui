@@ -89,8 +89,8 @@ let seedSource = 'picked';
 
 // The APK side must not resolve system_* through the package's own palette, or
 // the MATCH/DIFF table is circular and can only validate the token->resource
-// map. This is a deliberate second implementation of the AOSP wallpaper spec;
-// the package reaches the same values via CorePalette.of.
+// map. So this side writes out Android 14+'s chromas by hand, while the package
+// gets its values from SchemeTonalSpot.
 let refCache = { seed: null, palette: null };
 function refPalette() {
   if (refCache.seed !== seed) {
@@ -99,9 +99,9 @@ function refPalette() {
     refCache = {
       seed,
       palette: {
-        neutral1: TonalPalette.fromHueAndChroma(src.hue, 4),
+        neutral1: TonalPalette.fromHueAndChroma(src.hue, 6),
         neutral2: TonalPalette.fromHueAndChroma(src.hue, 8),
-        accent1: TonalPalette.fromHueAndChroma(src.hue, Math.max(48, src.chroma)),
+        accent1: TonalPalette.fromHueAndChroma(src.hue, 36),
         accent2: TonalPalette.fromHueAndChroma(src.hue, 16),
       },
     };
@@ -164,17 +164,8 @@ function resolve(value, mode, seen = new Set()) {
 const getColor = (name, mode) => resolve(tableFor(mode)[name], mode);
 const getDrawableColor = mode => resolve(drawableXml.querySelector('solid').getAttribute('android:color'), mode);
 
-const TOKEN_TO_RES = {
-  widgetBg: 'widget_bg_color', settingsBg: 'widget_settings_bg',
-  widgetElements: 'widget_elements_color', widgetFood: 'widget_food_color', widgetIcon: 'widget_icon_color',
-  mediaPageIndicator: 'color_media_page_indicator_default', mediaPageIndicatorSelected: 'color_media_page_indicator_selected',
-  mediaText: 'color_text_enable_authorize_tips', mediaProgress: 'color_music_progress_bar',
-  mediaProgressBg: 'color_music_progress_bar_bg', mediaSwitchIcon: 'color_media_switch_icon',
-  mediaSwitchIconBg: 'color_media_switch_icon_bg', settingsAccent: 'home_settings_header_accent',
-  settingsStateOn: 'home_settings_state_on_color', settingsStateOff: 'home_settings_state_off_color',
-  settingsThumbOff: 'home_settings_thumb_off_color', settingsTrackOff: 'home_settings_track_off_color',
-  settingsTrackOn: 'home_settings_track_on_color',
-};
+const tokenMap = await fetch('../../scripts/token-map.json').then(r => r.json());
+const TOKEN_TO_RES = Object.fromEntries(Object.entries(tokenMap.tokens).map(([token, v]) => [token, v.res]));
 
 function apkColors(mode) {
   const out = { widgetBg: getDrawableColor(mode) };

@@ -27,7 +27,7 @@ import { nothingWidgetColors } from 'nothing-mtui';
 // Material You gives you a Theme; pass it straight in.
 const theme = themeFromSourceColor(argbFromHex('#d71921'));
 const colors = nothingWidgetColors(theme, 'dark');
-colors.widgetBg; // '#201a19' — background for the Nothing widget
+colors.widgetBg; // '#231918' — background for the Nothing widget
 
 // Or skip Material You and pass the wallpaper seed directly.
 nothingWidgetColors('#d71921', 'dark');
@@ -42,7 +42,7 @@ A runnable version of this is in `sample/material-you-to-nothing.mjs`:
 node sample/material-you-to-nothing.mjs '#2e7d32'
 ```
 
-`palette` is a seed hex string, a material-color-utilities `Theme`, or an object of the shape
+`palette` is a seed (`'#rrggbb'` or an ARGB number), a material-color-utilities `Theme` or `DynamicScheme`, or an object of the shape
 `{ neutral1: {tone: hex}, neutral2: {...}, accent1: {...}, accent2: {...} }`
 where tone is one of 0, 10, 50, 100…900, 1000. On a dynamic-color device,
 `system_neutral1_*` etc. resolve from wallpaper. Pass that palette in for exact
@@ -51,13 +51,15 @@ Nothing OS behavior; omit it for static approximations.
 ## Exports
 
 - `nothingWidgetColors(palette, mode)` — resolved tokens for `'light'` / `'dark'`.
-- `paletteFromTheme(theme)` — converts a material-color-utilities `Theme` (or its
-  `palettes` object) to this package's palette shape. `primary`/`secondary` map to
-  AOSP's `accent1`/`accent2`, `neutral`/`neutralVariant` to `neutral1`/`neutral2`.
-- `paletteFromSeed(seed)` — builds the AOSP wallpaper palette from a seed hex,
-  via `CorePalette` (neutral1 chroma 4, neutral2 8, accent1 max(48, seed), accent2 16).
-  A seed with chroma under 5 has no usable hue, so AOSP substitutes a fixed blue
-  (`#1b6ef3`); this does the same.
+- `paletteFromTheme(theme)` — converts a material-color-utilities `DynamicScheme`,
+  `Theme`, or a Theme's `palettes` object to this package's palette shape.
+  `primary`/`secondary` map to Android's `accent1`/`accent2`, `neutral`/`neutralVariant`
+  to `neutral1`/`neutral2`.
+- `paletteFromSeed(seed)` — builds the wallpaper palette the way Android 14–16 do,
+  via `SchemeTonalSpot` (accent1 chroma 36, accent2 16, neutral1 6, neutral2 8).
+  Android 12 and 13 used slightly different chromas, so colors on those versions
+  will be a little off. A seed with chroma under 5 has no usable hue, so Android
+  substitutes a fixed blue (`#1b6ef3`); this does the same.
 - `withLstar(hex, lstar)` — forces CIE L\* while preserving hue/chroma, matching
   Android's `android:lStar` attribute.
 - `TOKENS` — the raw token-to-resource mapping.
@@ -79,8 +81,8 @@ is a mapping convenience.
 
 The mapping was checked against the app's own decoded resource files. Those
 files belong to Nothing, so they are not in this repo. You only need them to
-re-run that check (`npm run verify:apk`) or the pages in `sample/lab` and
-`sample/apk`; the package itself doesn't use them.
+re-run that check (`npm run verify:apk`) or the page in `sample/lab`; the
+package itself doesn't use them.
 
 To get them, decode `com.nothing.communitywidgets` with apktool or jadx and copy
 these files into `sample/apk-fixtures/`, keeping the folder structure:

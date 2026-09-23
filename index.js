@@ -1,50 +1,65 @@
-import { CorePalette, Hct, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
+import { Hct, SchemeTonalSpot, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
 
-// --- Material You palette generation (@material/material-color-utilities) ---
-// AOSP SystemColors mapping (frameworks/base ColorScheme): wallpaper seed ->
-// CorePalette. system_(key)_N resolves to tonal palette tone 100 - N/10.
-const TONES = [0, 10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+// Android exposes wallpaper colors as system_{key}_{shade}, where shade N is
+// tone 100 - N/10 of that key's tonal palette.
+const SHADES = [0, 10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+const KEYS = ['neutral1', 'neutral2', 'accent1', 'accent2'];
 
-// A near-grey wallpaper has no meaningful hue, so AOSP swaps in a fixed blue
-// rather than amplifying whatever hue the quantizer happened to land on.
+// A near-grey wallpaper has no real hue, so Android builds the palette from
+// this blue instead.
 const GOOGLE_BLUE = '#1b6ef3';
 const MIN_SEED_CHROMA = 5;
 
-function expand(sources) {
+const isTonalPalette = p => typeof p?.tone === 'function';
+
+function expand(palettes) {
   const out = {};
-  for (const [key, palette] of Object.entries(sources)) {
+  for (const [key, palette] of Object.entries(palettes)) {
     out[key] = {};
-    for (const n of TONES) out[key][n] = hexFromArgb(palette.tone(100 - n / 10));
+    for (const n of SHADES) out[key][n] = hexFromArgb(palette.tone(100 - n / 10));
   }
   return out;
 }
 
-export function paletteFromSeed(seed) {
-  let argb = argbFromHex(seed);
-  if (Hct.fromInt(argb).chroma < MIN_SEED_CHROMA) argb = argbFromHex(GOOGLE_BLUE);
-  const core = CorePalette.of(argb);
-  return expand({ neutral1: core.n1, neutral2: core.n2, accent1: core.a1, accent2: core.a2 });
+function fromDynamicScheme(scheme) {
+  return expand({
+    neutral1: scheme.neutralPalette,
+    neutral2: scheme.neutralVariantPalette,
+    accent1: scheme.primaryPalette,
+    accent2: scheme.secondaryPalette,
+  });
 }
 
-// themeFromSourceColor/themeFromImage return the same CorePalette under
-// Material's names: primary/secondary are AOSP's accent1/accent2, and
-// neutral/neutralVariant are neutral1/neutral2. When the theme carries its
-// source color, recompute through paletteFromSeed instead of trusting
-// theme.palettes directly, so the low-chroma-seed fallback still applies —
-// theme.palettes was built by CorePalette.of(source) with no such fallback.
-// Without a source (a caller passed the bare palettes object), that fallback
-// can't be recovered and theme.palettes is used as-is.
+function argbFromSeed(seed) {
+  if (Number.isInteger(seed)) return seed;
+  if (typeof seed === 'string' && /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.test(seed)) return argbFromHex(seed);
+  throw new TypeError(`expected a #rrggbb color or an ARGB number, got ${JSON.stringify(seed)}`);
+}
+
+// Android 14 and later build the system palette with SchemeTonalSpot
+// (accent1 chroma 36, accent2 16, neutral1 6, neutral2 8). Android 12 and 13
+// used slightly different chromas, so colors there will be a little off.
+export function paletteFromSeed(seed) {
+  let argb = argbFromSeed(seed);
+  if (Hct.fromInt(argb).chroma < MIN_SEED_CHROMA) argb = argbFromHex(GOOGLE_BLUE);
+  return fromDynamicScheme(new SchemeTonalSpot(Hct.fromInt(argb), false, 0));
+}
+
+// Accepts a DynamicScheme (used as-is), a Theme from themeFromSourceColor
+// (rebuilt from its source color, because its palettes use Android 12's
+// chromas), or a Theme's bare `palettes` object (used as-is).
 export function paletteFromTheme(theme) {
-  if (theme?.source !== undefined) return paletteFromSeed(hexFromArgb(theme.source));
-  const p = theme.palettes ?? theme;
+  if (isTonalPalette(theme?.primaryPalette)) return fromDynamicScheme(theme);
+  if (Number.isInteger(theme?.source)) return paletteFromSeed(theme.source);
+  const p = theme?.palettes ?? theme;
+  if (![p?.neutral, p?.neutralVariant, p?.primary, p?.secondary].every(isTonalPalette)) {
+    throw new TypeError('expected a material-color-utilities Theme, its palettes, or a DynamicScheme');
+  }
   return expand({ neutral1: p.neutral, neutral2: p.neutralVariant, accent1: p.primary, accent2: p.secondary });
 }
 
-function isThemeLike(palette) {
-  if (!palette) return false;
-  if (palette.source !== undefined) return true;
-  const p = palette.palettes ?? palette;
-  return p?.primary !== undefined || p?.neutral !== undefined;
+function isThemeLike(x) {
+  return isTonalPalette(x.primaryPalette) || Number.isInteger(x.source) || isTonalPalette((x.palettes ?? x).primary);
 }
 
 // lStar attribute (android:lStar) forces CIE L*, preserving hue/chroma.
@@ -108,15 +123,22 @@ export const TOKENS = {
   },
 };
 
-// palette: a seed hex, a material-color-utilities Theme, or a resolved
-// { neutral1: {tone: hex}, ... } palette object.
+// palette: a seed (#rrggbb or ARGB number), a material-color-utilities Theme
+// or DynamicScheme, a { neutral1: {shade: hex}, ... } object, or null for the
+// static fallbacks.
 export function nothingWidgetColors(palette, mode = 'light') {
-  if (typeof palette === 'string') palette = paletteFromSeed(palette);
-  else if (isThemeLike(palette)) palette = paletteFromTheme(palette);
-  const tokens = TOKENS[mode];
-  if (!tokens) throw new Error(`unknown mode: ${mode}`);
+  if (!Object.prototype.hasOwnProperty.call(TOKENS, mode)) throw new Error(`unknown mode: ${mode}`);
+  if (typeof palette === 'string' || typeof palette === 'number') {
+    palette = paletteFromSeed(palette);
+  } else if (palette != null) {
+    if (typeof palette !== 'object') throw new TypeError(`unsupported palette: ${typeof palette}`);
+    if (isThemeLike(palette)) palette = paletteFromTheme(palette);
+    else if (!KEYS.some(k => k in palette)) {
+      throw new TypeError(`unrecognized palette: expected a seed, Theme, DynamicScheme, or an object with ${KEYS.join('/')}`);
+    }
+  }
   const out = {};
-  for (const [name, token] of Object.entries(tokens)) {
+  for (const [name, token] of Object.entries(TOKENS[mode])) {
     if (token.static !== undefined) {
       out[name] = token.static;
       continue;

@@ -11,9 +11,9 @@ given either a wallpaper seed color or a `material-color-utilities` Theme.
 The token-to-resource mapping (e.g. `widgetBg` → `system_neutral1_50` in
 light, `system_neutral1_900` in dark) was extracted by decompiling the
 `com.nothing.communitywidgets` APK; the palette math that turns a seed color
-into the full set of Material You tones is a from-scratch reimplementation of
-AOSP's wallpaper `ColorScheme`, delegated to
-`@material/material-color-utilities`'s `CorePalette`.
+into the full set of Material You tones follows Android 14–16's wallpaper
+`ColorScheme`, which builds its palettes with
+`@material/material-color-utilities`'s `SchemeTonalSpot`.
 
 On native Android (Kotlin/Java) and Flutter, the OS/framework already
 resolves the Material You palette from the live wallpaper — those platforms
@@ -61,10 +61,14 @@ instead of `tar` — that succeeds. A local Node build lives at
   Nothing's binary/resources would be copyright infringement, unlike the
   derived color values themselves.
 - `sample/apk-fixtures/` — 7 of Nothing's decoded XML resource files, used by
-  `verify:apk` and the `sample/lab` + `sample/apk` pages. **Gitignored and must
+  `verify:apk` and the `sample/lab` page. **Gitignored and must
   never be committed**: they're Nothing's copyrighted files. They were once
-  committed (along with the whole `.xapk`/APKs); both were purged from `main`'s
-  history before the repo went public. README "APK fixtures" says how to
+  committed (along with the whole `.xapk`/APKs) and were purged from `main`'s
+  history with `git filter-branch`. GitHub still served the old commits by
+  hash after the force-push, so the GitHub repo has to be recreated (or
+  purged by GitHub Support) before going public. Local `refs/t3/checkpoints/*`
+  refs (T3 Code's) still contain them: never `git push --mirror` or push those
+  refs. README "APK fixtures" says how to
   recreate them.
 
 ## Conventions & gotchas
@@ -74,7 +78,11 @@ instead of `tar` — that succeeds. A local Node build lives at
   `sample/apk-fixtures/`. All three are gitignored.
 - Not affiliated with Nothing Technology Limited; keep the README disclaimer
   saying so.
-- Palette generation must go through `@material/material-color-utilities`'s
-  `CorePalette`/`TonalPalette`, not hand-rolled chroma constants — a prior
-  hand-rolled version drifted from AOSP's actual formula (accent2 used the
-  content-scheme chroma instead of AOSP's fixed chroma 16).
+- Palette generation goes through `SchemeTonalSpot`, which is what Android
+  14–16 use. Chromas by version (accent1/accent2/neutral1/neutral2): Android 12
+  `CorePalette` max(48,seed)/16/4/8, Android 13 36/16/4/8, Android 14+
+  36/16/6/8. `test.js` checks the 14+ numbers against hand-written constants,
+  and the lab's reference side hand-writes them too; keep both independent of
+  `index.js`.
+- `sample/lab` reads the token→resource map from `scripts/token-map.json`;
+  don't reintroduce a hard-coded copy.
