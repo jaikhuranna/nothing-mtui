@@ -59,11 +59,18 @@ instead of `tar` — that succeeds. A local Node build lives at
   `*.xapk` is also gitignored. Never remove these ignores; redistributing
   Nothing's binary/resources would be copyright infringement, unlike the
   derived color values themselves.
+- `sample/apk-fixtures/` — **is** committed: 7 of Nothing's decompiled XML
+  resource files (incl. the app's full `values/colors.xml`), used by the lab
+  and `verify-apk-mapping.mjs`. They are © Nothing, excluded from the MIT
+  licence (see README), and excluded from the npm tarball by `files`. The repo
+  is private; before making it public, remove or trim these (and purge them
+  from git history), since publishing them is redistribution of Nothing's
+  files.
 
 ## Conventions & gotchas
 
-- `package.json` says `"license": "MIT"` but no `LICENSE` file exists yet —
-  add one before treating the package as actually MIT-licensed.
+- Licence: MIT (`LICENSE`), covering original code only — not
+  `sample/apk-fixtures/`. npm always ships `LICENSE` regardless of `files`.
 - Not affiliated with Nothing Technology Limited; keep the README disclaimer
   saying so.
 - Palette generation must go through `@material/material-color-utilities`'s

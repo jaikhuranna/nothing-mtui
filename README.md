@@ -74,3 +74,15 @@ you need exact non-dynamic-device values.
 
 Origin: decompiled APK (nothing-mtui session). Tokens are Nothing's; this package
 is a mapping convenience.
+
+## Licence
+
+The original code in this repository is released under the [MIT License](LICENSE).
+
+The files under `sample/apk-fixtures/` are resources extracted from Nothing's
+`com.nothing.communitywidgets` app, are © Nothing Technology Limited, and are
+**not** covered by the MIT License. They are included only as test fixtures and
+are not part of the published npm package.
+
+"Nothing" is a trademark of Nothing Technology Limited, used here only to
+describe what this package is compatible with.
