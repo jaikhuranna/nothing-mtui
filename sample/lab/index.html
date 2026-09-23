@@ -110,7 +110,11 @@ function refPalette() {
 }
 
 // ---- Android resource shim over the real decompiled fixtures ----
-const read = f => fetch(`../apk-fixtures/${f}`).then(r => r.text());
+const read = f => fetch(`../apk-fixtures/${f}`).then(r => {
+  if (!r.ok) throw new Error(`Missing sample/apk-fixtures/${f}. These are Nothing's files and aren't in the repo; see "APK fixtures" in the README.`);
+  return r.text();
+});
+const showError = e => { document.body.prepend(Object.assign(document.createElement('p'), { textContent: e.message })); throw e; };
 const parseTable = xmlText => Object.fromEntries(
   [...new DOMParser().parseFromString(xmlText, 'text/xml').querySelectorAll('color')]
     .map(el => [el.getAttribute('name'), el.textContent.trim()]));
@@ -127,7 +131,7 @@ async function loadFixtures() {
   drawableXml = new DOMParser().parseFromString(d, 'text/xml');
   quoteLayout = q;
 }
-await loadFixtures();
+await loadFixtures().catch(showError);
 
 function tableFor(mode) { return mode === 'dark' ? { ...base, ...night } : base; }
 
@@ -224,7 +228,7 @@ function showSeed(candidates = []) {
 function mockCard(c) {
   return `<div class="card" style="background:${c.widgetBg}">
     <span class="quote" style="color:${c.widgetElements}">&#10077;</span>
-    <p style="color:${c.widgetElements}">Making tech fun again.</p>
+    <p style="color:${c.widgetElements}">A quote lives here.</p>
   </div>`;
 }
 function mockSnake(c) {

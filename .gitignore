@@ -2,3 +2,4 @@ extracted/
 *.xapk
 node_modules/
 .tooling/
+sample/apk-fixtures/

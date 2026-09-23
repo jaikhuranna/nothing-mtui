@@ -10,7 +10,8 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node test.js && node scripts/verify-apk-mapping.mjs"
+    "test": "node test.js",
+    "verify:apk": "node scripts/verify-apk-mapping.mjs"
   },
   "keywords": [
     "nothing",

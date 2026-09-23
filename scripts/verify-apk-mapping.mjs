@@ -1,8 +1,12 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { TOKENS } from '../index.js';
 
 const R = 'sample/apk-fixtures';
+if (!existsSync(`${R}/values/colors.xml`)) {
+  console.error(`No APK fixtures in ${R}/. They're Nothing's files, so they aren't committed; see "APK fixtures" in the README to decode them locally.`);
+  process.exit(1);
+}
 const read = f => readFileSync(`${R}/${f}`, 'utf8');
 
 const parseColors = xml => Object.fromEntries(

@@ -75,14 +75,31 @@ you need exact non-dynamic-device values.
 Origin: decompiled APK (nothing-mtui session). Tokens are Nothing's; this package
 is a mapping convenience.
 
+## APK fixtures
+
+The mapping was checked against the app's own decoded resource files. Those
+files belong to Nothing, so they are not in this repo. You only need them to
+re-run that check (`npm run verify:apk`) or the pages in `sample/lab` and
+`sample/apk`; the package itself doesn't use them.
+
+To get them, decode `com.nothing.communitywidgets` with apktool or jadx and copy
+these files into `sample/apk-fixtures/`, keeping the folder structure:
+
+```
+values/colors.xml
+values-night/colors.xml
+color/default_color_background_dark.xml
+drawable/widget_2x2_bg.xml
+layout/widget_quotes_card_2x2.xml
+layout/widget_snake_card_2x2.xml
+layout/mediaplayer_widget_container.xml
+```
+
+`sample/apk-fixtures/` is gitignored, so they won't get committed by accident.
+
 ## Licence
 
-The original code in this repository is released under the [MIT License](LICENSE).
-
-The files under `sample/apk-fixtures/` are resources extracted from Nothing's
-`com.nothing.communitywidgets` app, are © Nothing Technology Limited, and are
-**not** covered by the MIT License. They are included only as test fixtures and
-are not part of the published npm package.
+The code in this repository is released under the [MIT License](LICENSE).
 
 "Nothing" is a trademark of Nothing Technology Limited, used here only to
 describe what this package is compatible with.

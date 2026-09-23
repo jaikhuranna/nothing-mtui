@@ -24,12 +24,13 @@ for those platforms is a planned but not yet built follow-up.
 ## Build & test
 
 ```
-npm test          # node test.js && node scripts/verify-apk-mapping.mjs
+npm test            # unit tests (test.js)
+npm run verify:apk  # needs local sample/apk-fixtures/, see below
 ```
 
 `test.js` is unit tests against `index.js`. `scripts/verify-apk-mapping.mjs`
 cross-checks `TOKENS` in `index.js` against the real decompiled APK XML in
-`sample/apk-fixtures/`, using `scripts/token-map.json` as a provenance record
+`sample/apk-fixtures/` (local only, gitignored), using `scripts/token-map.json` as a provenance record
 (which resource each token's value came from: decompiled Java refs, resource
 refs, or fixture refs).
 
@@ -59,18 +60,18 @@ instead of `tar` — that succeeds. A local Node build lives at
   `*.xapk` is also gitignored. Never remove these ignores; redistributing
   Nothing's binary/resources would be copyright infringement, unlike the
   derived color values themselves.
-- `sample/apk-fixtures/` — **is** committed: 7 of Nothing's decompiled XML
-  resource files (incl. the app's full `values/colors.xml`), used by the lab
-  and `verify-apk-mapping.mjs`. They are © Nothing, excluded from the MIT
-  licence (see README), and excluded from the npm tarball by `files`. The repo
-  is private; before making it public, remove or trim these (and purge them
-  from git history), since publishing them is redistribution of Nothing's
-  files.
+- `sample/apk-fixtures/` — 7 of Nothing's decoded XML resource files, used by
+  `verify:apk` and the `sample/lab` + `sample/apk` pages. **Gitignored and must
+  never be committed**: they're Nothing's copyrighted files. They were once
+  committed (along with the whole `.xapk`/APKs); both were purged from `main`'s
+  history before the repo went public. README "APK fixtures" says how to
+  recreate them.
 
 ## Conventions & gotchas
 
-- Licence: MIT (`LICENSE`), covering original code only — not
-  `sample/apk-fixtures/`. npm always ships `LICENSE` regardless of `files`.
+- Licence: MIT (`LICENSE`). npm always ships `LICENSE` regardless of `files`.
+- Never commit anything from the APK: not `*.xapk`, `extracted/`, or
+  `sample/apk-fixtures/`. All three are gitignored.
 - Not affiliated with Nothing Technology Limited; keep the README disclaimer
   saying so.
 - Palette generation must go through `@material/material-color-utilities`'s
