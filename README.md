@@ -11,7 +11,7 @@ monochrome black/white, accents use `system_accent1/accent2`. Dark tones are
 lifted from `values-night/colors.xml`; tones not overridden there resolve
 against the dark palette (modeled as the same tone). One nuance: dark
 `widget_settings_bg` forces `android:lStar="12"` in the APK, which this package
-applies on top of neutral1 tone 900.
+applies on top of `system_neutral1_900`.
 
 ## Usage
 
@@ -71,9 +71,32 @@ Anything else throws instead of quietly returning grey fallback colors.
 
 ## Tokens
 
-- `widgetBg`, `settingsBg`, `widgetElements`, `widgetFood`, `widgetIcon`
-- `mediaPageIndicator`, `mediaPageIndicatorSelected`, `mediaText`, `mediaProgress`, `mediaProgressBg`, `mediaSwitchIcon`, `mediaSwitchIconBg`
-- `settingsAccent`, `settingsStateOn`, `settingsStateOff`, `settingsThumbOff`, `settingsTrackOff`, `settingsTrackOn`
+Each token and the Android color it comes from. On native Android you can use
+these resources directly (`android.R.color.system_neutral1_50` and so on, API 31+).
+
+| Token | Light | Dark |
+|---|---|---|
+| `widgetBg` | `system_neutral1_50` | `system_neutral1_900` |
+| `settingsBg` | `system_neutral1_50` | `system_neutral1_900` at lStar 12 |
+| `widgetElements` | `#000000` | `#ffffff` |
+| `widgetFood` | `#d71921` | `#d71921` |
+| `widgetIcon` | `#ffffff` | `#ffffff` |
+| `mediaPageIndicator` | `system_neutral1_200` | `system_neutral1_600` |
+| `mediaPageIndicatorSelected` | `system_neutral1_800` | `system_neutral1_10` |
+| `mediaText` | `system_neutral1_900` | `system_neutral1_50` |
+| `mediaProgress` | `system_neutral1_900` | `system_neutral1_50` |
+| `mediaProgressBg` | `system_neutral1_100` | `system_neutral1_800` |
+| `mediaSwitchIcon` | `system_neutral1_900` | `system_neutral1_50` |
+| `mediaSwitchIconBg` | `system_neutral1_100` | `system_neutral1_800` |
+| `settingsAccent` | `system_accent1_600` | `system_accent1_100` |
+| `settingsStateOn` | `system_accent1_100` | `system_accent1_100` |
+| `settingsStateOff` | `system_accent2_100` | `system_accent2_100` |
+| `settingsThumbOff` | `system_neutral2_100` | `system_neutral2_300` |
+| `settingsTrackOff` | `system_neutral2_600` | `system_neutral1_700` |
+| `settingsTrackOn` | `system_accent1_600` | `system_accent2_700` |
+
+`lStar 12` means the color is `system_neutral1_900` with `android:lStar="12"`
+applied (see `withLstar`).
 
 ## APK fixtures
 
@@ -96,6 +119,14 @@ layout/mediaplayer_widget_container.xml
 ```
 
 `sample/apk-fixtures/` is gitignored, so they won't get committed by accident.
+
+`sample/lab` has to be served over HTTP from the repo root, because it loads
+`/node_modules/...` and `scripts/token-map.json`:
+
+```
+npm install
+python3 -m http.server 8000   # then open http://localhost:8000/sample/lab/
+```
 
 ## Licence
 

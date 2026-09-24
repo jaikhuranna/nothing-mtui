@@ -47,6 +47,7 @@ export function paletteFromSeed(seed) {
 // and chroma, and leaves the color alone when lStar is outside 0-100.
 export function withLstar(hex, lstar) {
   if (typeof hex !== 'string' || !HEX.test(hex)) throw new TypeError(`expected a #rrggbb color, got ${JSON.stringify(hex)}`);
+  if (typeof lstar !== 'number') throw new TypeError(`expected lstar to be a number, got ${JSON.stringify(lstar)}`);
   if (!(lstar >= 0 && lstar <= 100)) return hex;
   const hct = Hct.fromInt(argbFromHex(hex));
   return hexFromArgb(Hct.from(hct.hue, hct.chroma, lstar).toInt());
@@ -105,6 +106,17 @@ export const TOKENS = deepFreeze({
   },
 });
 
+// nothingWidgetColors is often called twice per render (light and dark) with
+// the same seed, so keep the last palette around.
+let lastSeed, lastPalette;
+function cachedPalette(seed) {
+  if (seed !== lastSeed) {
+    lastPalette = paletteFromSeed(seed);
+    lastSeed = seed;
+  }
+  return lastPalette;
+}
+
 // A Theme (themeFromSourceColor) or DynamicScheme carries the seed it was
 // built from. Both get rebuilt from that seed, because this package models
 // Android's default wallpaper style rather than whatever the object used.
@@ -135,15 +147,17 @@ export function nothingWidgetColors(palette, mode = 'light') {
   if (palette == null) {
     palette = FALLBACKS;
   } else if (typeof palette === 'string' || typeof palette === 'number') {
-    palette = paletteFromSeed(palette);
+    palette = cachedPalette(palette);
   } else if (typeof palette !== 'object') {
     throw new TypeError(`unsupported palette: ${typeof palette}`);
   } else if (KEYS.some(k => k in palette)) {
     checkPalette(palette, mode);
-  } else if (seedOf(palette) !== undefined) {
-    palette = paletteFromSeed(seedOf(palette));
   } else {
-    throw new TypeError(`unrecognized palette: expected a seed, Theme, DynamicScheme, or an object with ${KEYS.join('/')}`);
+    const seed = seedOf(palette);
+    if (seed === undefined) {
+      throw new TypeError(`unrecognized palette: expected a seed, Theme, DynamicScheme, or an object with ${KEYS.join('/')}`);
+    }
+    palette = cachedPalette(seed);
   }
   const out = {};
   for (const [name, token] of Object.entries(TOKENS[mode])) {

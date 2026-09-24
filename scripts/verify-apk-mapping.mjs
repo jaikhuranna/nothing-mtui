@@ -2,9 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { TOKENS } from '../index.js';
 
-const R = 'sample/apk-fixtures';
+const root = new URL('..', import.meta.url);
+const R = new URL('sample/apk-fixtures', root).pathname;
 if (!existsSync(`${R}/values/colors.xml`)) {
-  console.error(`No APK fixtures in ${R}/. They're Nothing's files, so they aren't committed; see "APK fixtures" in the README to decode them locally.`);
+  console.error(`No APK fixtures in sample/apk-fixtures/. They're Nothing's files, so they aren't committed; see "APK fixtures" in the README to decode them locally.`);
   process.exit(1);
 }
 const read = f => readFileSync(`${R}/${f}`, 'utf8');
@@ -15,7 +16,7 @@ const parseColors = xml => Object.fromEntries(
 const base = parseColors(read('values/colors.xml'));
 const night = parseColors(read('values-night/colors.xml'));
 const colorXml = read('color/default_color_background_dark.xml');
-const tokenMap = JSON.parse(readFileSync('scripts/token-map.json', 'utf8'));
+const tokenMap = JSON.parse(readFileSync(new URL('scripts/token-map.json', root), 'utf8'));
 
 // Cross-check: every token's resource must be referenced by decompiled code,
 // decompiled resources, or committed fixtures. `declared_only` tokens are

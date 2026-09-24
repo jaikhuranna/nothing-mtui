@@ -92,6 +92,10 @@ assert.equal(withLstar('#3c4758', 0), '#000000', 'lStar 0 maps to black');
 assert.equal(withLstar('#3c4758', 150), '#3c4758');
 assert.equal(withLstar('#3c4758', -5), '#3c4758');
 assert.throws(() => withLstar('red', 50), TypeError);
+// A string or null must not be coerced into a number (null >= 0 is true).
+assert.throws(() => withLstar('#3c4758', '12'), TypeError);
+assert.throws(() => withLstar('#3c4758', null), TypeError);
+assert.equal(withLstar('#3c4758', NaN), '#3c4758');
 
 // A Theme from themeFromSourceColor is rebuilt from theme.source, so it lands on
 // the same colors as the seed, grey-seed fallback included (the Theme's own
@@ -108,6 +112,14 @@ for (const seed of ['#d71921', '#888888']) {
 
 // A Theme's bare palettes object carries no seed and Android 12's chromas, so it's refused.
 assert.throws(() => nothingWidgetColors(themeFromSourceColor(argbFromHex('#d71921')).palettes, 'light'), /unrecognized palette/);
+
+// Repeated calls reuse the cached palette but still return fresh objects.
+{
+  const first = nothingWidgetColors('#2e7d32', 'light');
+  first.widgetBg = 'changed';
+  assert.notEqual(nothingWidgetColors('#2e7d32', 'light').widgetBg, 'changed');
+  assert.equal(nothingWidgetColors('#2e7d32', 'dark').widgetBg, paletteFromSeed('#2e7d32').neutral1[900]);
+}
 
 // ARGB numbers are what sourceColorFromImage and theme.source hand back.
 assert.deepEqual(nothingWidgetColors(0xffd71921, 'light'), nothingWidgetColors('#d71921', 'light'));

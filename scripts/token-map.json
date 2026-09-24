@@ -1,5 +1,5 @@
 {
- "_provenance": "extracted from jadx decompile of com.nothing.communitywidgets-52. java = R.color refs in decompiled code; res = @color/ refs in decompiled resources; fixture = refs in committed layout fixtures",
+ "_provenance": "extracted from a jadx decompile of com.nothing.communitywidgets-52. java = R.color refs in decompiled code; res = @color/ refs in decompiled resources; fixture = refs in the local layout fixtures (sample/apk-fixtures/, not committed)",
  "tokens": {
   "widgetBg": {
    "res": "widget_bg_color",

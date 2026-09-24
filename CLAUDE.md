@@ -50,6 +50,10 @@ instead of `tar` — that succeeds. A local Node build lives at
   DynamicScheme → `paletteFromSeed`) or is a complete device palette keyed by
   Android shade (`neutral1[50]`), which is validated; anything else throws.
   `TOKENS` entries are `{ shade: ['neutral1', 50] }` or `{ static: '#hex' }`.
+- `index.d.ts` — hand-written TypeScript types, shipped via `types`/`exports`.
+  Keep them in sync with `index.js` (token names, input shapes). To check:
+  `npm pack`, install the tarball plus `typescript` into a scratch project under
+  `.tooling/`, and run `tsc --strict` on a file that uses the API.
 - `sample/lab/index.html` — browser harness comparing the package's output
   against an independent second implementation of the AOSP palette spec,
   resolving `@android:color/system_*` refs from the real decompiled fixtures.
@@ -90,4 +94,13 @@ instead of `tar` — that succeeds. A local Node build lives at
   and the lab's reference side hand-writes them too; keep both independent of
   `index.js`.
 - `sample/lab` reads the token→resource map from `scripts/token-map.json`;
-  don't reintroduce a hard-coded copy.
+  don't reintroduce a hard-coded copy. It must be served over HTTP from the
+  repo root (`python3 -m http.server`), since it loads `/node_modules/...`.
+- The README's Tokens table is generated from `TOKENS`; regenerate it when a
+  token changes.
+- The in-app preview browser isn't always available. Headless Chrome works as
+  a fallback: `google-chrome --headless=new --remote-debugging-port=9333
+  --user-data-dir=.tooling/chrome-prof`, then drive it over CDP from Node
+  (Node 22 has a global WebSocket).
+- Don't `pkill -f` with a pattern that also appears in your own command line;
+  it kills the shell running it.
