@@ -154,7 +154,8 @@ function resolve(value, mode, seen = new Set()) {
       const item = colorXml.querySelector('item');
       let v = resolve(item.getAttribute('android:color'), mode, seen);
       const lstar = item.getAttribute('android:lStar');
-      // Done here rather than with the package's withLstar, so an lStar bug there shows up as a DIFF.
+      // Not the package's withLstar, so a wiring or range bug there shows up as a DIFF. Same HCT
+      // math though, so a difference from Android's own lStar solver wouldn't be caught.
       if (lstar) { const h = Hct.fromInt(argbFromHex(v)); v = hexFromArgb(Hct.from(h.hue, h.chroma, Number(lstar)).toInt()); }
       return v;
     }

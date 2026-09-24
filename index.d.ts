@@ -1,5 +1,3 @@
-import type { DynamicScheme, Theme } from '@material/material-color-utilities';
-
 export type Mode = 'light' | 'dark';
 export type PaletteKey = 'neutral1' | 'neutral2' | 'accent1' | 'accent2';
 /** Android shade, as in `system_neutral1_50`. Not a Material tone. */
@@ -12,10 +10,18 @@ export type Seed = string | number;
 export type Palette = Record<PaletteKey, Record<Shade, string>>;
 
 /**
- * A palette read off a device. Only the shades the tokens use are required;
- * a missing or non-`#rrggbb` one throws a TypeError naming it.
+ * A palette read off a device. Colors may be '#rrggbb', '#aarrggbb' (with or
+ * without '#') or ARGB ints. Only the shades the tokens use are required; a
+ * missing or unreadable one throws a TypeError naming it.
  */
-export type DevicePalette = Partial<Record<PaletteKey, Partial<Record<Shade, string>>>>;
+export type DevicePalette = Record<PaletteKey, Partial<Record<Shade, string | number>>>;
+
+/**
+ * Anything carrying the seed it was built from: a material-color-utilities
+ * Theme (`source`) or DynamicScheme (`sourceColorArgb`). Typed by shape so any
+ * version of that library works.
+ */
+export type SeededScheme = { readonly source: number } | { readonly sourceColorArgb: number };
 
 export type TokenName =
   | 'widgetBg' | 'settingsBg' | 'widgetElements' | 'widgetFood' | 'widgetIcon'
@@ -36,7 +42,7 @@ export type Token =
  * from the seed it carries; `null` uses `FALLBACKS`.
  */
 export function nothingWidgetColors(
-  palette: Seed | Theme | DynamicScheme | DevicePalette | null | undefined,
+  palette: Seed | SeededScheme | DevicePalette | null | undefined,
   mode?: Mode,
 ): WidgetColors;
 

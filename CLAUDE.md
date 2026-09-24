@@ -47,7 +47,9 @@ before running `npm`.
   Android shade (`neutral1[50]`), which is validated; anything else throws.
   `TOKENS` entries are `{ shade: ['neutral1', 50] }` or `{ static: '#hex' }`.
 - `index.d.ts` — hand-written TypeScript types, shipped via `types`/`exports`.
-  Keep them in sync with `index.js` (token names, input shapes). To check:
+  Keep them in sync with `index.js` (token names, input shapes). Theme and
+  DynamicScheme inputs are typed by shape, not imported from
+  material-color-utilities, so consumers on another version of it still compile. To check:
   `npm pack`, install the tarball plus `typescript` into a scratch project under
   `.tooling/`, and run `tsc --strict` on a file that uses the API.
 - `sample/lab/index.html` — browser harness comparing the package's output
@@ -66,15 +68,9 @@ before running `npm`.
   Nothing's binary/resources would be copyright infringement, unlike the
   derived color values themselves.
 - `sample/apk-fixtures/` — 7 of Nothing's decoded XML resource files, used by
-  `verify:apk` and the `sample/lab` page. **Gitignored and must
-  never be committed**: they're Nothing's copyrighted files. They were once
-  committed (along with the whole `.xapk`/APKs) and were purged from `main`'s
-  history with `git filter-branch`. GitHub still served the old commits by
-  hash after the force-push, so the GitHub repo has to be recreated (or
-  purged by GitHub Support) before going public. Local `refs/t3/checkpoints/*`
-  refs (T3 Code's) still contain them: never `git push --mirror` or push those
-  refs. README "APK fixtures" says how to
-  recreate them.
+  `verify:apk` and the `sample/lab` page. Local only: they're Nothing's
+  copyrighted files, so they're gitignored and must never be committed.
+  README "APK fixtures" says how to recreate them.
 
 ## Conventions & gotchas
 

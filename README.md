@@ -1,16 +1,18 @@
 # nothing-mtui
 
-Nothing widget color tokens, lifted from `com.nothing.communitywidgets-52` (res/values/colors.xml).
+Nothing widget color tokens, taken from the `com.nothing.communitywidgets` app
+(version 52): `res/values/colors.xml` for light mode and
+`res/values-night/colors.xml` for dark.
 
 Unofficial and not affiliated with, endorsed by, or supported by Nothing Technology Limited.
 The token values are factual color data; the package is a mapping convenience.
 
-Logic found in the APK: widget backgrounds use Android Material You dynamic
-neutrals (`@android:color/system_neutral1_50` light / `_900` dark), elements stay
-monochrome black/white, accents use `system_accent1/accent2`. Dark tones are
-lifted from `values-night/colors.xml`; tones not overridden there resolve
-against the dark palette (modeled as the same tone). One nuance: dark
-`widget_settings_bg` forces `android:lStar="12"` in the APK, which this package
+What the app does: widget backgrounds use Android's Material You neutrals
+(`system_neutral1_50` in light mode, `system_neutral1_900` in dark), foreground
+elements stay black or white, and accents use `system_accent1` and
+`system_accent2`. Android has one wallpaper palette for both modes, so a token
+the night resources don't override uses the same shade in dark mode. One
+nuance: dark `widget_settings_bg` adds `android:lStar="12"`, which this package
 applies on top of `system_neutral1_900`.
 
 ## Usage
@@ -50,7 +52,9 @@ node sample/material-you-to-nothing.mjs '#2e7d32'
 - a palette you read off a device, shaped
   `{ neutral1: { 0: '#…', 10: '#…', 50: '#…', …, 1000: '#…' }, neutral2, accent1, accent2 }`.
   The keys are Android shades (`system_neutral1_50` → `neutral1[50]`), not
-  tones, and every shade the tokens use must be there;
+  tones, and every shade the tokens use must be there. Colors can be
+  `'#rrggbb'`, `'#aarrggbb'` (with or without `#`) or ARGB ints, and come back
+  as lowercase `'#rrggbb'`;
 - `null`, for `FALLBACKS`.
 
 Anything else throws instead of quietly returning grey fallback colors.

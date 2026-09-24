@@ -97,7 +97,7 @@ export const TOKENS = deepFreeze({
     mediaSwitchIcon: { shade: ['neutral1', 50] },
     mediaSwitchIconBg: { shade: ['neutral1', 800] },
     settingsAccent: { shade: ['accent1', 100] },
-    // not overridden in values-night: same shades resolve against the dark palette
+    // not overridden in values-night, so these match light mode
     settingsStateOn: { shade: ['accent1', 100] },
     settingsStateOff: { shade: ['accent2', 100] },
     settingsThumbOff: { shade: ['neutral2', 300] },
@@ -126,17 +126,28 @@ function seedOf(x) {
   return undefined;
 }
 
-function checkPalette(palette, mode) {
+// Accepts what a device palette is likely to hold: '#rrggbb', '#aarrggbb'
+// (with or without '#', any case) or an ARGB int. Alpha is dropped.
+function normalizeColor(value) {
+  if (Number.isInteger(value)) return hexFromArgb(value);
+  const m = typeof value === 'string' && /^#?(?:[0-9a-f]{2})?([0-9a-f]{6})$/i.exec(value);
+  return m ? `#${m[1].toLowerCase()}` : undefined;
+}
+
+function readDevicePalette(palette, mode) {
+  const out = {};
   const bad = new Set();
   for (const token of Object.values(TOKENS[mode])) {
     if (!token.shade) continue;
     const [key, shade] = token.shade;
-    const hex = palette[key]?.[shade];
-    if (typeof hex !== 'string' || !HEX.test(hex)) bad.add(`${key}_${shade}`);
+    const hex = normalizeColor(palette[key]?.[shade]);
+    if (hex === undefined) bad.add(`${key}_${shade}`);
+    else (out[key] = out[key] || {})[shade] = hex;
   }
   if (bad.size) {
-    throw new TypeError(`palette needs a #rrggbb color for ${[...bad].join(', ')} (keys are Android shades like 50 and 900, not tones)`);
+    throw new TypeError(`palette needs a color for ${[...bad].join(', ')} (keys are Android shades like 50 and 900, not tones)`);
   }
+  return out;
 }
 
 // palette: a seed (#rrggbb or ARGB number), a material-color-utilities Theme
@@ -151,7 +162,7 @@ export function nothingWidgetColors(palette, mode = 'light') {
   } else if (typeof palette !== 'object') {
     throw new TypeError(`unsupported palette: ${typeof palette}`);
   } else if (KEYS.some(k => k in palette)) {
-    checkPalette(palette, mode);
+    palette = readDevicePalette(palette, mode);
   } else {
     const seed = seedOf(palette);
     if (seed === undefined) {

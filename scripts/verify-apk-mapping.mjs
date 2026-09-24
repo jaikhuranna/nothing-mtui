@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { TOKENS } from '../index.js';
 
 const root = new URL('..', import.meta.url);
-const R = new URL('sample/apk-fixtures', root).pathname;
+const R = fileURLToPath(new URL('sample/apk-fixtures', root));
 if (!existsSync(`${R}/values/colors.xml`)) {
   console.error(`No APK fixtures in sample/apk-fixtures/. They're Nothing's files, so they aren't committed; see "APK fixtures" in the README to decode them locally.`);
   process.exit(1);

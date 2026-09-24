@@ -53,9 +53,16 @@ assert.throws(() => nothingWidgetColors({ neutral1: { 50: '#fafafa' } }, 'light'
 assert.throws(() => nothingWidgetColors({ neutral1: { 95: '#fafafa' } }, 'light'), /not tones/);
 {
   const device = structuredClone(paletteFromSeed('#2e7d32'));
+  // Colors in the forms Android hands out are accepted and come back as #rrggbb.
   device.neutral1[900] = 0xff111111;
-  assert.throws(() => nothingWidgetColors(device, 'dark'), /neutral1_900/, 'non-hex values are rejected');
+  assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#111111', 'ARGB int');
+  device.neutral1[900] = '#FF222222';
+  assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#222222', '#AARRGGBB');
+  device.neutral1[900] = '333333';
+  assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#333333', 'no #');
   device.neutral1[900] = 'red';
+  assert.throws(() => nothingWidgetColors(device, 'dark'), /neutral1_900/);
+  device.neutral1[900] = '#12345';
   assert.throws(() => nothingWidgetColors(device, 'dark'), /neutral1_900/);
 }
 

@@ -2,10 +2,11 @@
 // Material You gives you a Theme; this package turns it into Nothing's
 // widget colors.
 import { themeFromSourceColor, argbFromHex } from '@material/material-color-utilities';
-import { nothingWidgetColors } from '../index.js';
+import { nothingWidgetColors, paletteFromSeed } from '../index.js';
 
 // 1. Wallpaper seed -> Material You theme, straight from the upstream package.
 const seed = process.argv[2] ?? '#d71921';
+paletteFromSeed(seed); // throws on a bad color, which argbFromHex below wouldn't
 const theme = themeFromSourceColor(argbFromHex(seed));
 
 // 2. Theme -> Nothing widget colors.
