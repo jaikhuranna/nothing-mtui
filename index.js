@@ -16,8 +16,12 @@ function deepFreeze(obj) {
   return Object.freeze(obj);
 }
 
+// Android's Color ints are signed 32-bit and material-color-utilities' are
+// unsigned, so accept either range.
+const isArgb = n => Number.isInteger(n) && n >= -0x80000000 && n <= 0xffffffff;
+
 function argbFromSeed(seed) {
-  if (Number.isInteger(seed)) return seed;
+  if (isArgb(seed)) return seed;
   if (typeof seed === 'string' && /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.test(seed)) return argbFromHex(seed);
   throw new TypeError(`expected a #rrggbb color or an ARGB number, got ${JSON.stringify(seed)}`);
 }
@@ -121,38 +125,44 @@ function cachedPalette(seed) {
 // built from. Both get rebuilt from that seed, because this package models
 // Android's default wallpaper style rather than whatever the object used.
 function seedOf(x) {
-  if (Number.isInteger(x.source)) return x.source;
-  if (Number.isInteger(x.sourceColorArgb)) return x.sourceColorArgb;
+  if (isArgb(x.source)) return x.source;
+  if (isArgb(x.sourceColorArgb)) return x.sourceColorArgb;
   return undefined;
 }
 
-// Accepts what a device palette is likely to hold: '#rrggbb', '#aarrggbb'
-// (with or without '#', any case) or an ARGB int. Alpha is dropped.
+// Accepts '#rrggbb' (any case, '#' optional) or an ARGB int. 8-digit strings
+// are refused because Android writes them #AARRGGBB and CSS writes #RRGGBBAA.
 function normalizeColor(value) {
-  if (Number.isInteger(value)) return hexFromArgb(value);
-  const m = typeof value === 'string' && /^#?(?:[0-9a-f]{2})?([0-9a-f]{6})$/i.exec(value);
+  if (isArgb(value)) return hexFromArgb(value);
+  const m = typeof value === 'string' && /^#?([0-9a-f]{6})$/i.exec(value);
   return m ? `#${m[1].toLowerCase()}` : undefined;
 }
 
 function readDevicePalette(palette, mode) {
   const out = {};
-  const bad = new Set();
+  const missing = new Set();
+  const unreadable = new Set();
   for (const token of Object.values(TOKENS[mode])) {
     if (!token.shade) continue;
     const [key, shade] = token.shade;
-    const hex = normalizeColor(palette[key]?.[shade]);
-    if (hex === undefined) bad.add(`${key}_${shade}`);
+    const value = palette[key]?.[shade];
+    const hex = normalizeColor(value);
+    if (value === undefined) missing.add(`${key}_${shade}`);
+    else if (hex === undefined) unreadable.add(`${key}_${shade} (${JSON.stringify(value)})`);
     else (out[key] = out[key] || {})[shade] = hex;
   }
-  if (bad.size) {
-    throw new TypeError(`palette needs a color for ${[...bad].join(', ')} (keys are Android shades like 50 and 900, not tones)`);
+  if (missing.size) {
+    throw new TypeError(`palette is missing ${[...missing].join(', ')} (keys are Android shades like 50 and 900, not tones)`);
+  }
+  if (unreadable.size) {
+    throw new TypeError(`palette colors must be '#rrggbb' or an ARGB int: ${[...unreadable].join(', ')}`);
   }
   return out;
 }
 
 // palette: a seed (#rrggbb or ARGB number), a material-color-utilities Theme
 // or DynamicScheme, a { neutral1: {shade: hex}, ... } palette read from a
-// device, or null for FALLBACKS.
+// device, or null/undefined for FALLBACKS.
 export function nothingWidgetColors(palette, mode = 'light') {
   if (!Object.prototype.hasOwnProperty.call(TOKENS, mode)) throw new Error(`unknown mode: ${mode}`);
   if (palette == null) {

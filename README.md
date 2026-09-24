@@ -17,8 +17,8 @@ applies on top of `system_neutral1_900`.
 
 ## Usage
 
-Works anywhere JavaScript runs — web, and React Native (including React Native
-on Android). A native Kotlin/Java app does not need this package: Android 12+
+Works in browsers, React Native and Node 18+. It's an ES module, so use
+`import` (a CommonJS `require` only works on Node versions that can require ESM). A native Kotlin/Java app does not need this package: Android 12+
 exposes the same colors directly as `android.R.color.system_neutral1_50` etc.,
 so there you only need the token mapping under [Tokens](#tokens).
 
@@ -38,7 +38,8 @@ nothingWidgetColors('#d71921', 'dark');
 nothingWidgetColors(null, 'light');
 ```
 
-A runnable version of this is in `sample/material-you-to-nothing.mjs`:
+A runnable version of this is in `sample/material-you-to-nothing.mjs` in the
+GitHub repo (the `sample/` and `scripts/` folders aren't in the npm package):
 
 ```
 node sample/material-you-to-nothing.mjs '#2e7d32'
@@ -53,9 +54,10 @@ node sample/material-you-to-nothing.mjs '#2e7d32'
   `{ neutral1: { 0: '#…', 10: '#…', 50: '#…', …, 1000: '#…' }, neutral2, accent1, accent2 }`.
   The keys are Android shades (`system_neutral1_50` → `neutral1[50]`), not
   tones, and every shade the tokens use must be there. Colors can be
-  `'#rrggbb'`, `'#aarrggbb'` (with or without `#`) or ARGB ints, and come back
-  as lowercase `'#rrggbb'`;
-- `null`, for `FALLBACKS`.
+  `'#rrggbb'` (the `#` is optional) or ARGB ints, signed or unsigned, and come
+  back as lowercase `'#rrggbb'`. 8-digit strings are refused, because Android
+  writes them `#AARRGGBB` and CSS writes `#RRGGBBAA`;
+- `null` or `undefined`, for `FALLBACKS`.
 
 Anything else throws instead of quietly returning grey fallback colors.
 
@@ -101,6 +103,9 @@ these resources directly (`android.R.color.system_neutral1_50` and so on, API 31
 
 `lStar 12` means the color is `system_neutral1_900` with `android:lStar="12"`
 applied (see `withLstar`).
+
+`widgetIcon` and `settingsStateOff` are defined in the app's `colors.xml` but
+nothing in the decompiled app references them, so the app may never draw them.
 
 ## APK fixtures
 

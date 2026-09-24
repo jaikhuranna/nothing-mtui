@@ -50,14 +50,21 @@ assert.deepEqual(
 // An incomplete palette fails with the missing shades instead of mixing in fallbacks.
 assert.throws(() => nothingWidgetColors({ neutral1: { 50: '#fafafa' } }, 'light'), /accent1_600/);
 // Tone keys (95, 10...) instead of shade keys (50, 900...) are a likely mix-up.
-assert.throws(() => nothingWidgetColors({ neutral1: { 95: '#fafafa' } }, 'light'), /not tones/);
+assert.throws(() => nothingWidgetColors({ neutral1: { 95: '#fafafa' } }, 'light'), /missing .*not tones/);
 {
   const device = structuredClone(paletteFromSeed('#2e7d32'));
   // Colors in the forms Android hands out are accepted and come back as #rrggbb.
   device.neutral1[900] = 0xff111111;
   assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#111111', 'ARGB int');
-  device.neutral1[900] = '#FF222222';
-  assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#222222', '#AARRGGBB');
+  device.neutral1[900] = -15658735; // 0xff111111 as Android's signed Color int
+  assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#111111', 'signed ARGB int');
+  device.neutral1[900] = '#ABCDEF';
+  assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#abcdef', 'upper case');
+  // 8 digits could be #AARRGGBB (Android) or #RRGGBBAA (CSS), so neither is guessed.
+  device.neutral1[900] = '#ff222222';
+  assert.throws(() => nothingWidgetColors(device, 'dark'), /'#rrggbb' or an ARGB int: neutral1_900/);
+  device.neutral1[900] = 2 ** 33;
+  assert.throws(() => nothingWidgetColors(device, 'dark'), /neutral1_900/, 'out of 32-bit range');
   device.neutral1[900] = '333333';
   assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#333333', 'no #');
   device.neutral1[900] = 'red';
@@ -130,6 +137,9 @@ assert.throws(() => nothingWidgetColors(themeFromSourceColor(argbFromHex('#d7192
 
 // ARGB numbers are what sourceColorFromImage and theme.source hand back.
 assert.deepEqual(nothingWidgetColors(0xffd71921, 'light'), nothingWidgetColors('#d71921', 'light'));
+assert.deepEqual(nothingWidgetColors(0xffd71921 | 0, 'light'), nothingWidgetColors('#d71921', 'light'), 'signed int');
+assert.throws(() => nothingWidgetColors(2 ** 33 + 0xd71921, 'light'), TypeError, 'out of 32-bit range');
+assert.deepEqual(nothingWidgetColors(undefined, 'light'), nothingWidgetColors(null, 'light'), 'undefined means FALLBACKS');
 
 // A DynamicScheme is rebuilt from its source color, grey-seed fallback included.
 for (const seed of ['#d71921', '#888888']) {
@@ -155,5 +165,15 @@ assert.equal(nothingWidgetColors('#f00', 'light').widgetFood, '#d71921', 'short 
 
 assert.throws(() => nothingWidgetColors(null, 'Dark'), /unknown mode/);
 assert.throws(() => nothingWidgetColors(null, 'toString'), /unknown mode/);
+
+// The README's Tokens table is written by hand; keep it matching TOKENS.
+{
+  const readme = (await import('node:fs')).readFileSync(new URL('./README.md', import.meta.url), 'utf8');
+  const cell = t => t.static ? `\`${t.static}\`` : `\`system_${t.shade[0]}_${t.shade[1]}\`${t.lstar !== undefined ? ` at lStar ${t.lstar}` : ''}`;
+  for (const name of Object.keys(TOKENS.light)) {
+    const row = `| \`${name}\` | ${cell(TOKENS.light[name])} | ${cell(TOKENS.dark[name])} |`;
+    assert.ok(readme.includes(row), `README Tokens table row for ${name} should be: ${row}`);
+  }
+}
 
 console.log('ok');

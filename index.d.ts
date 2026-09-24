@@ -3,15 +3,15 @@ export type PaletteKey = 'neutral1' | 'neutral2' | 'accent1' | 'accent2';
 /** Android shade, as in `system_neutral1_50`. Not a Material tone. */
 export type Shade = 0 | 10 | 50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 1000;
 
-/** A seed color: `'#rrggbb'`, `'#rgb'`, or an ARGB number. */
+/** A seed color: `'#rrggbb'`, `'#rgb'`, or a 32-bit ARGB int (signed or unsigned). */
 export type Seed = string | number;
 
 /** Every shade of every key, as built by `paletteFromSeed`. */
 export type Palette = Record<PaletteKey, Record<Shade, string>>;
 
 /**
- * A palette read off a device. Colors may be '#rrggbb', '#aarrggbb' (with or
- * without '#') or ARGB ints. Only the shades the tokens use are required; a
+ * A palette read off a device. Colors may be '#rrggbb' ('#' optional) or ARGB
+ * ints, signed or unsigned. Only the shades the tokens use are required; a
  * missing or unreadable one throws a TypeError naming it.
  */
 export type DevicePalette = Record<PaletteKey, Partial<Record<Shade, string | number>>>;
@@ -39,7 +39,7 @@ export type Token =
 
 /**
  * Nothing widget colors for a wallpaper. A Theme or DynamicScheme is rebuilt
- * from the seed it carries; `null` uses `FALLBACKS`.
+ * from the seed it carries; `null` or `undefined` uses `FALLBACKS`.
  */
 export function nothingWidgetColors(
   palette: Seed | SeededScheme | DevicePalette | null | undefined,

@@ -88,8 +88,8 @@ before running `npm`.
 - `sample/lab` reads the token→resource map from `scripts/token-map.json`;
   don't reintroduce a hard-coded copy. It must be served over HTTP from the
   repo root (`python3 -m http.server`), since it loads `/node_modules/...`.
-- The README's Tokens table is generated from `TOKENS`; regenerate it when a
-  token changes.
+- The README's Tokens table is written by hand; `test.js` fails if a row
+  doesn't match `TOKENS`.
 - The in-app preview browser isn't always available. Headless Chrome works as
   a fallback: `google-chrome --headless=new --remote-debugging-port=9333
   --user-data-dir=.tooling/chrome-prof`, then drive it over CDP from Node
