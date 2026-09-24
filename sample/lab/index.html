@@ -75,12 +75,13 @@
 <div id="tables"></div>
 <p class="src">Left resolves the real decompiled resources (values/colors.xml, values-night overlay,
 drawable widget_2x2_bg, quote layout textColor, color-selector indirection, android:lStar) through a
-shim of the Android resource system. Right calls nothingWidgetColors from the package. Image seeds are
-extracted exactly like Material You on a phone: QuantizerCelebi (128 clusters) + Score ranking on the
-decoded pixels, then the AOSP ColorScheme chroma mapping builds the system palettes.</p>
+shim of the Android resource system. Right calls nothingWidgetColors from the package. Image seeds
+use QuantizerCelebi (128 clusters) + Score, which is close to what a phone does but not identical:
+Android shrinks the wallpaper differently and ranks with its own seed picker, so on a busy image the
+top pick can differ.</p>
 
 <script type="module">
-import { nothingWidgetColors, paletteFromSeed, withLstar, FALLBACKS } from '../../index.js';
+import { nothingWidgetColors, paletteFromSeed } from '../../index.js';
 import { Hct, QuantizerCelebi, Score, TonalPalette, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
 
 let seed = document.getElementById('seed').value;
@@ -153,7 +154,8 @@ function resolve(value, mode, seen = new Set()) {
       const item = colorXml.querySelector('item');
       let v = resolve(item.getAttribute('android:color'), mode, seen);
       const lstar = item.getAttribute('android:lStar');
-      if (lstar) v = withLstar(v, Number(lstar));
+      // Done here rather than with the package's withLstar, so an lStar bug there shows up as a DIFF.
+      if (lstar) { const h = Hct.fromInt(argbFromHex(v)); v = hexFromArgb(Hct.from(h.hue, h.chroma, Number(lstar)).toInt()); }
       return v;
     }
     if (!(name in t)) throw new Error(`missing resource: ${name}`);
@@ -178,7 +180,7 @@ function apkColors(mode) {
 }
 
 // ---- phone-like seed extraction from an image ----
-function extractSeedFromImageData(data, w, h) {
+function extractSeedFromImageData(data) {
   const px = [];
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] < 255) continue;
@@ -199,11 +201,14 @@ async function extractFromFile(file) {
     const canvas = new OffscreenCanvas(w, h);
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
     const data = canvas.getContext('2d').getImageData(0, 0, w, h).data;
-    const r = extractSeedFromImageData(data, w, h);
+    const r = extractSeedFromImageData(data);
     if (r.seed) { seed = r.seed; seedSource = file.name; palette = paletteFromSeed(seed); }
     showSeed(r.candidates);
     render();
     return r.seed;
+  } catch {
+    document.getElementById('seedtext').textContent = `couldn't read ${file.name} as an image`;
+    return null;
   } finally { URL.revokeObjectURL(url); }
 }
 

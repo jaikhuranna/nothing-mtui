@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Hct, SchemeTonalSpot, TonalPalette, argbFromHex, hexFromArgb, themeFromSourceColor } from '@material/material-color-utilities';
-import { FALLBACKS, nothingWidgetColors, paletteFromSeed, paletteFromTheme, TOKENS, withLstar } from './index.js';
+import { FALLBACKS, nothingWidgetColors, paletteFromSeed, TOKENS, withLstar } from './index.js';
 
 for (const mode of ['light', 'dark']) {
   const colors = nothingWidgetColors(null, mode);
@@ -33,11 +33,31 @@ assert.deepEqual(
   nothingWidgetColors('#d71921', 'dark'),
   nothingWidgetColors(paletteFromSeed('#d71921'), 'dark'));
 
-const palette = { neutral1: { 50: '#fafafa', 900: '#111111', 10: '#0a0a0a' } };
-assert.equal(nothingWidgetColors(palette, 'light').widgetBg, '#fafafa');
-assert.equal(nothingWidgetColors(palette, 'dark').widgetBg, '#111111');
-assert.equal(nothingWidgetColors(palette, 'dark').mediaPageIndicatorSelected, '#0a0a0a');
-assert.equal(nothingWidgetColors(palette, 'light').widgetElements, '#000000', 'static survives palette');
+// A palette read off a device is used as-is.
+{
+  const device = structuredClone(paletteFromSeed('#2e7d32'));
+  device.neutral1[50] = '#fafafa';
+  device.neutral1[900] = '#111111';
+  device.neutral1[10] = '#0a0a0a';
+  assert.equal(nothingWidgetColors(device, 'light').widgetBg, '#fafafa');
+  assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#111111');
+  assert.equal(nothingWidgetColors(device, 'dark').mediaPageIndicatorSelected, '#0a0a0a');
+  assert.equal(nothingWidgetColors(device, 'light').widgetElements, '#000000', 'static survives palette');
+  // Resolved data wins over a stray `source` field.
+  assert.equal(nothingWidgetColors({ ...device, source: 5 }, 'light').widgetBg, '#fafafa');
+}
+
+// An incomplete palette fails with the missing shades instead of mixing in fallbacks.
+assert.throws(() => nothingWidgetColors({ neutral1: { 50: '#fafafa' } }, 'light'), /accent1_600/);
+// Tone keys (95, 10...) instead of shade keys (50, 900...) are a likely mix-up.
+assert.throws(() => nothingWidgetColors({ neutral1: { 95: '#fafafa' } }, 'light'), /not tones/);
+{
+  const device = structuredClone(paletteFromSeed('#2e7d32'));
+  device.neutral1[900] = 0xff111111;
+  assert.throws(() => nothingWidgetColors(device, 'dark'), /neutral1_900/, 'non-hex values are rejected');
+  device.neutral1[900] = 'red';
+  assert.throws(() => nothingWidgetColors(device, 'dark'), /neutral1_900/);
+}
 
 // Chromas Android 14-16 use for the system palette (SchemeTonalSpot, per
 // frameworks/libs/systemui ColorScheme). Written out here rather than read from
@@ -68,12 +88,14 @@ for (const key of ['neutral1', 'neutral2', 'accent1', 'accent2']) {
 
 // lStar of 0 is a legal value and must not be skipped by a truthiness test.
 assert.equal(withLstar('#3c4758', 0), '#000000', 'lStar 0 maps to black');
+// Android ignores an lStar outside 0-100 and keeps the color.
+assert.equal(withLstar('#3c4758', 150), '#3c4758');
+assert.equal(withLstar('#3c4758', -5), '#3c4758');
+assert.throws(() => withLstar('red', 50), TypeError);
 
-// A Material You Theme is the shape people actually get from the upstream
-// package, and must land on the same colors as passing the seed directly —
-// including on a near-grey seed, where the Theme's own palettes were built
-// without the low-chroma fallback and paletteFromTheme must recover it via
-// theme.source rather than trusting theme.palettes as-is.
+// A Theme from themeFromSourceColor is rebuilt from theme.source, so it lands on
+// the same colors as the seed, grey-seed fallback included (the Theme's own
+// palettes use Android 12's chromas and skip that fallback).
 for (const seed of ['#d71921', '#888888']) {
   for (const mode of ['light', 'dark']) {
     const theme = themeFromSourceColor(argbFromHex(seed));
@@ -84,24 +106,23 @@ for (const seed of ['#d71921', '#888888']) {
   }
 }
 
-// The bare palettes sub-object (no .source) must still be recognized as
-// Material-shaped and resolved through paletteFromTheme, not silently
-// mistaken for an already-resolved { neutral1: {...} } palette and fall
-// through to generic FALLBACKS.
-{
-  const theme = themeFromSourceColor(argbFromHex('#d71921'));
-  const viaBarePalettes = nothingWidgetColors(theme.palettes, 'light');
-  assert.notEqual(viaBarePalettes.widgetBg, FALLBACKS.neutral1_50, 'bare palettes must not fall back to FALLBACKS');
-  assert.deepEqual(viaBarePalettes, nothingWidgetColors(paletteFromTheme(theme.palettes), 'light'));
-}
+// A Theme's bare palettes object carries no seed and Android 12's chromas, so it's refused.
+assert.throws(() => nothingWidgetColors(themeFromSourceColor(argbFromHex('#d71921')).palettes, 'light'), /unrecognized palette/);
 
 // ARGB numbers are what sourceColorFromImage and theme.source hand back.
 assert.deepEqual(nothingWidgetColors(0xffd71921, 'light'), nothingWidgetColors('#d71921', 'light'));
 
-// A DynamicScheme is used as-is, and SchemeTonalSpot is what Android 14+ builds.
-assert.deepEqual(
-  nothingWidgetColors(new SchemeTonalSpot(Hct.fromInt(argbFromHex('#d71921')), true, 0), 'dark'),
-  nothingWidgetColors('#d71921', 'dark'));
+// A DynamicScheme is rebuilt from its source color, grey-seed fallback included.
+for (const seed of ['#d71921', '#888888']) {
+  assert.deepEqual(
+    nothingWidgetColors(new SchemeTonalSpot(Hct.fromInt(argbFromHex(seed)), true, 0), 'dark'),
+    nothingWidgetColors(seed, 'dark'),
+    `DynamicScheme from ${seed}`);
+}
+
+// Shared exports can't be changed by one consumer for everyone else.
+assert.ok(Object.isFrozen(TOKENS.light.widgetBg.shade) && Object.isFrozen(FALLBACKS.neutral1));
+assert.throws(() => { 'use strict'; TOKENS.light.widgetBg.shade[1] = 900; }, TypeError);
 
 // Anything unrecognized should fail loudly rather than quietly return grey fallbacks.
 const scheme = themeFromSourceColor(argbFromHex('#d71921')).schemes.dark;

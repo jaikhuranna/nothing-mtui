@@ -42,7 +42,7 @@ function extract(value, mode, seen = new Set()) {
     if (sys === 'black') return { static: '#000000' };
     const m = sys.match(/^system_(neutral1|neutral2|accent1|accent2)_(\d+)$/);
     assert.ok(m, `unhandled system color: ${sys}`);
-    return { tone: [m[1], Number(m[2])] };
+    return { shade: [m[1], Number(m[2])] };
   }
   if (value.startsWith('@color/')) {
     const name = value.slice('@color/'.length);

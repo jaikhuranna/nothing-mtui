@@ -45,12 +45,17 @@ instead of `tar` — that succeeds. A local Node build lives at
 ## Layout
 
 - `index.js` — the published package. Exports `nothingWidgetColors`,
-  `paletteFromSeed`, `paletteFromTheme`, `withLstar`, `TOKENS`, `FALLBACKS`.
+  `paletteFromSeed`, `withLstar`, and the frozen `TOKENS` / `FALLBACKS`.
+  Every input is either reduced to a seed (hex, ARGB number, Theme,
+  DynamicScheme → `paletteFromSeed`) or is a complete device palette keyed by
+  Android shade (`neutral1[50]`), which is validated; anything else throws.
+  `TOKENS` entries are `{ shade: ['neutral1', 50] }` or `{ static: '#hex' }`.
 - `sample/lab/index.html` — browser harness comparing the package's output
   against an independent second implementation of the AOSP palette spec,
   resolving `@android:color/system_*` refs from the real decompiled fixtures.
   The two sides must stay independent (not both reading the package's own
-  palette) or the comparison is circular and can't catch palette bugs.
+  palette or its `withLstar`) or the comparison is circular and can't catch
+  bugs.
 - `sample/material-you-to-nothing.mjs` — runnable end-to-end demo: seed →
   `themeFromSourceColor` → `nothingWidgetColors`.
 - `scripts/verify-apk-mapping.mjs` + `scripts/token-map.json` — provenance

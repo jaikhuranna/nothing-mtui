@@ -32,7 +32,7 @@ colors.widgetBg; // '#231918' — background for the Nothing widget
 // Or skip Material You and pass the wallpaper seed directly.
 nothingWidgetColors('#d71921', 'dark');
 
-// No palette: static fallback approximations.
+// No palette: the FALLBACKS colors.
 nothingWidgetColors(null, 'light');
 ```
 
@@ -42,40 +42,38 @@ A runnable version of this is in `sample/material-you-to-nothing.mjs`:
 node sample/material-you-to-nothing.mjs '#2e7d32'
 ```
 
-`palette` is a seed (`'#rrggbb'` or an ARGB number), a material-color-utilities `Theme` or `DynamicScheme`, or an object of the shape
-`{ neutral1: {tone: hex}, neutral2: {...}, accent1: {...}, accent2: {...} }`
-where tone is one of 0, 10, 50, 100…900, 1000. On a dynamic-color device,
-`system_neutral1_*` etc. resolve from wallpaper. Pass that palette in for exact
-Nothing OS behavior; omit it for static approximations.
+`palette` can be:
+
+- a seed color, `'#rrggbb'` or an ARGB number;
+- a material-color-utilities `Theme` or `DynamicScheme`, which gets rebuilt from
+  the seed it carries (this package models Android's default wallpaper style);
+- a palette you read off a device, shaped
+  `{ neutral1: { 0: '#…', 10: '#…', 50: '#…', …, 1000: '#…' }, neutral2, accent1, accent2 }`.
+  The keys are Android shades (`system_neutral1_50` → `neutral1[50]`), not
+  tones, and every shade the tokens use must be there;
+- `null`, for `FALLBACKS`.
+
+Anything else throws instead of quietly returning grey fallback colors.
 
 ## Exports
 
 - `nothingWidgetColors(palette, mode)` — resolved tokens for `'light'` / `'dark'`.
-- `paletteFromTheme(theme)` — converts a material-color-utilities `DynamicScheme`,
-  `Theme`, or a Theme's `palettes` object to this package's palette shape.
-  `primary`/`secondary` map to Android's `accent1`/`accent2`, `neutral`/`neutralVariant`
-  to `neutral1`/`neutral2`.
 - `paletteFromSeed(seed)` — builds the wallpaper palette the way Android 14–16 do,
   via `SchemeTonalSpot` (accent1 chroma 36, accent2 16, neutral1 6, neutral2 8).
   Android 12 and 13 used slightly different chromas, so colors on those versions
   will be a little off. A seed with chroma under 5 has no usable hue, so Android
   substitutes a fixed blue (`#1b6ef3`); this does the same.
-- `withLstar(hex, lstar)` — forces CIE L\* while preserving hue/chroma, matching
-  Android's `android:lStar` attribute.
-- `TOKENS` — the raw token-to-resource mapping.
-- `FALLBACKS` — static palette used when no palette is supplied.
+- `withLstar(hex, lstar)` — sets CIE L\* and keeps hue/chroma, the way Android
+  applies an `android:lStar` attribute (an lStar outside 0–100 is ignored).
+- `TOKENS` — the raw token-to-shade mapping (frozen).
+- `FALLBACKS` — the palette used for `null`, generated from the blue-grey seed
+  `#8a8f99` (frozen). It is not Android's own static fallback colors.
 
 ## Tokens
 
 - `widgetBg`, `settingsBg`, `widgetElements`, `widgetFood`, `widgetIcon`
 - `mediaPageIndicator`, `mediaPageIndicatorSelected`, `mediaText`, `mediaProgress`, `mediaProgressBg`, `mediaSwitchIcon`, `mediaSwitchIconBg`
 - `settingsAccent`, `settingsStateOn`, `settingsStateOff`, `settingsThumbOff`, `settingsTrackOff`, `settingsTrackOn`
-
-Fallback hexes approximate Android's static Material You fallbacks; swap them if
-you need exact non-dynamic-device values.
-
-Origin: decompiled APK (nothing-mtui session). Tokens are Nothing's; this package
-is a mapping convenience.
 
 ## APK fixtures
 

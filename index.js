@@ -4,30 +4,16 @@ import { Hct, SchemeTonalSpot, argbFromHex, hexFromArgb } from '@material/materi
 // tone 100 - N/10 of that key's tonal palette.
 const SHADES = [0, 10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 const KEYS = ['neutral1', 'neutral2', 'accent1', 'accent2'];
+const HEX = /^#[0-9a-f]{6}$/i;
 
 // A near-grey wallpaper has no real hue, so Android builds the palette from
 // this blue instead.
 const GOOGLE_BLUE = '#1b6ef3';
 const MIN_SEED_CHROMA = 5;
 
-const isTonalPalette = p => typeof p?.tone === 'function';
-
-function expand(palettes) {
-  const out = {};
-  for (const [key, palette] of Object.entries(palettes)) {
-    out[key] = {};
-    for (const n of SHADES) out[key][n] = hexFromArgb(palette.tone(100 - n / 10));
-  }
-  return out;
-}
-
-function fromDynamicScheme(scheme) {
-  return expand({
-    neutral1: scheme.neutralPalette,
-    neutral2: scheme.neutralVariantPalette,
-    accent1: scheme.primaryPalette,
-    accent2: scheme.secondaryPalette,
-  });
+function deepFreeze(obj) {
+  for (const value of Object.values(obj)) if (value && typeof value === 'object') deepFreeze(value);
+  return Object.freeze(obj);
 }
 
 function argbFromSeed(seed) {
@@ -42,100 +28,122 @@ function argbFromSeed(seed) {
 export function paletteFromSeed(seed) {
   let argb = argbFromSeed(seed);
   if (Hct.fromInt(argb).chroma < MIN_SEED_CHROMA) argb = argbFromHex(GOOGLE_BLUE);
-  return fromDynamicScheme(new SchemeTonalSpot(Hct.fromInt(argb), false, 0));
-}
-
-// Accepts a DynamicScheme (used as-is), a Theme from themeFromSourceColor
-// (rebuilt from its source color, because its palettes use Android 12's
-// chromas), or a Theme's bare `palettes` object (used as-is).
-export function paletteFromTheme(theme) {
-  if (isTonalPalette(theme?.primaryPalette)) return fromDynamicScheme(theme);
-  if (Number.isInteger(theme?.source)) return paletteFromSeed(theme.source);
-  const p = theme?.palettes ?? theme;
-  if (![p?.neutral, p?.neutralVariant, p?.primary, p?.secondary].every(isTonalPalette)) {
-    throw new TypeError('expected a material-color-utilities Theme, its palettes, or a DynamicScheme');
+  const scheme = new SchemeTonalSpot(Hct.fromInt(argb), false, 0);
+  const palettes = {
+    neutral1: scheme.neutralPalette,
+    neutral2: scheme.neutralVariantPalette,
+    accent1: scheme.primaryPalette,
+    accent2: scheme.secondaryPalette,
+  };
+  const out = {};
+  for (const [key, palette] of Object.entries(palettes)) {
+    out[key] = {};
+    for (const n of SHADES) out[key][n] = hexFromArgb(palette.tone(100 - n / 10));
   }
-  return expand({ neutral1: p.neutral, neutral2: p.neutralVariant, accent1: p.primary, accent2: p.secondary });
+  return out;
 }
 
-function isThemeLike(x) {
-  return isTonalPalette(x.primaryPalette) || Number.isInteger(x.source) || isTonalPalette((x.palettes ?? x).primary);
-}
-
-// lStar attribute (android:lStar) forces CIE L*, preserving hue/chroma.
+// Mirrors Android's ColorStateList.modulateColor: sets CIE L* and keeps hue
+// and chroma, and leaves the color alone when lStar is outside 0-100.
 export function withLstar(hex, lstar) {
+  if (typeof hex !== 'string' || !HEX.test(hex)) throw new TypeError(`expected a #rrggbb color, got ${JSON.stringify(hex)}`);
+  if (!(lstar >= 0 && lstar <= 100)) return hex;
   const hct = Hct.fromInt(argbFromHex(hex));
   return hexFromArgb(Hct.from(hct.hue, hct.chroma, lstar).toInt());
 }
 
-// Static fallbacks for non-dynamic contexts: generated from a neutral seed
-// (blue-gray, like AOSP's static fallback values) with the same tonal math.
-export const FALLBACKS = Object.fromEntries(
-  Object.entries(paletteFromSeed('#8a8f99')).flatMap(([key, tones]) =>
-    Object.entries(tones).map(([n, hex]) => [`${key}_${n}`, hex])));
+// Used when no palette is given. It's generated from a blue-grey seed, not
+// taken from Android's own static colors.
+export const FALLBACKS = deepFreeze(paletteFromSeed('#8a8f99'));
 
 // Token mappings lifted from com.nothing.communitywidgets:
 //   light — res/values/colors.xml
 //   dark  — res/values-night/colors.xml
-// Tone tokens reference a Material You palette: { neutral1: {50: '#hex'}, ... }.
-export const TOKENS = {
+// `shade: ['neutral1', 50]` means @android:color/system_neutral1_50.
+export const TOKENS = deepFreeze({
   light: {
-    widgetBg: { tone: ['neutral1', 50] },
-    settingsBg: { tone: ['neutral1', 50] },
+    widgetBg: { shade: ['neutral1', 50] },
+    settingsBg: { shade: ['neutral1', 50] },
     widgetElements: { static: '#000000' },
     widgetFood: { static: '#d71921' },
     widgetIcon: { static: '#ffffff' },
-    mediaPageIndicator: { tone: ['neutral1', 200] },
-    mediaPageIndicatorSelected: { tone: ['neutral1', 800] },
-    mediaText: { tone: ['neutral1', 900] },
-    mediaProgress: { tone: ['neutral1', 900] },
-    mediaProgressBg: { tone: ['neutral1', 100] },
-    mediaSwitchIcon: { tone: ['neutral1', 900] },
-    mediaSwitchIconBg: { tone: ['neutral1', 100] },
-    settingsAccent: { tone: ['accent1', 600] },
-    settingsStateOn: { tone: ['accent1', 100] },
-    settingsStateOff: { tone: ['accent2', 100] },
-    settingsThumbOff: { tone: ['neutral2', 100] },
-    settingsTrackOff: { tone: ['neutral2', 600] },
-    settingsTrackOn: { tone: ['accent1', 600] },
+    mediaPageIndicator: { shade: ['neutral1', 200] },
+    mediaPageIndicatorSelected: { shade: ['neutral1', 800] },
+    mediaText: { shade: ['neutral1', 900] },
+    mediaProgress: { shade: ['neutral1', 900] },
+    mediaProgressBg: { shade: ['neutral1', 100] },
+    mediaSwitchIcon: { shade: ['neutral1', 900] },
+    mediaSwitchIconBg: { shade: ['neutral1', 100] },
+    settingsAccent: { shade: ['accent1', 600] },
+    settingsStateOn: { shade: ['accent1', 100] },
+    settingsStateOff: { shade: ['accent2', 100] },
+    settingsThumbOff: { shade: ['neutral2', 100] },
+    settingsTrackOff: { shade: ['neutral2', 600] },
+    settingsTrackOn: { shade: ['accent1', 600] },
   },
   dark: {
-    widgetBg: { tone: ['neutral1', 900] },
+    widgetBg: { shade: ['neutral1', 900] },
     // widget_settings_bg dark = neutral1_900 with android:lStar="12"
-    settingsBg: { tone: ['neutral1', 900], lstar: 12 },
+    settingsBg: { shade: ['neutral1', 900], lstar: 12 },
     widgetElements: { static: '#ffffff' },
     widgetFood: { static: '#d71921' },
     widgetIcon: { static: '#ffffff' },
-    mediaPageIndicator: { tone: ['neutral1', 600] },
-    mediaPageIndicatorSelected: { tone: ['neutral1', 10] },
-    mediaText: { tone: ['neutral1', 50] },
-    mediaProgress: { tone: ['neutral1', 50] },
-    mediaProgressBg: { tone: ['neutral1', 800] },
-    mediaSwitchIcon: { tone: ['neutral1', 50] },
-    mediaSwitchIconBg: { tone: ['neutral1', 800] },
-    settingsAccent: { tone: ['accent1', 100] },
-    // not overridden in values-night: same tones resolve against the dark palette
-    settingsStateOn: { tone: ['accent1', 100] },
-    settingsStateOff: { tone: ['accent2', 100] },
-    settingsThumbOff: { tone: ['neutral2', 300] },
-    settingsTrackOff: { tone: ['neutral1', 700] },
-    settingsTrackOn: { tone: ['accent2', 700] },
+    mediaPageIndicator: { shade: ['neutral1', 600] },
+    mediaPageIndicatorSelected: { shade: ['neutral1', 10] },
+    mediaText: { shade: ['neutral1', 50] },
+    mediaProgress: { shade: ['neutral1', 50] },
+    mediaProgressBg: { shade: ['neutral1', 800] },
+    mediaSwitchIcon: { shade: ['neutral1', 50] },
+    mediaSwitchIconBg: { shade: ['neutral1', 800] },
+    settingsAccent: { shade: ['accent1', 100] },
+    // not overridden in values-night: same shades resolve against the dark palette
+    settingsStateOn: { shade: ['accent1', 100] },
+    settingsStateOff: { shade: ['accent2', 100] },
+    settingsThumbOff: { shade: ['neutral2', 300] },
+    settingsTrackOff: { shade: ['neutral1', 700] },
+    settingsTrackOn: { shade: ['accent2', 700] },
   },
-};
+});
+
+// A Theme (themeFromSourceColor) or DynamicScheme carries the seed it was
+// built from. Both get rebuilt from that seed, because this package models
+// Android's default wallpaper style rather than whatever the object used.
+function seedOf(x) {
+  if (Number.isInteger(x.source)) return x.source;
+  if (Number.isInteger(x.sourceColorArgb)) return x.sourceColorArgb;
+  return undefined;
+}
+
+function checkPalette(palette, mode) {
+  const bad = new Set();
+  for (const token of Object.values(TOKENS[mode])) {
+    if (!token.shade) continue;
+    const [key, shade] = token.shade;
+    const hex = palette[key]?.[shade];
+    if (typeof hex !== 'string' || !HEX.test(hex)) bad.add(`${key}_${shade}`);
+  }
+  if (bad.size) {
+    throw new TypeError(`palette needs a #rrggbb color for ${[...bad].join(', ')} (keys are Android shades like 50 and 900, not tones)`);
+  }
+}
 
 // palette: a seed (#rrggbb or ARGB number), a material-color-utilities Theme
-// or DynamicScheme, a { neutral1: {shade: hex}, ... } object, or null for the
-// static fallbacks.
+// or DynamicScheme, a { neutral1: {shade: hex}, ... } palette read from a
+// device, or null for FALLBACKS.
 export function nothingWidgetColors(palette, mode = 'light') {
   if (!Object.prototype.hasOwnProperty.call(TOKENS, mode)) throw new Error(`unknown mode: ${mode}`);
-  if (typeof palette === 'string' || typeof palette === 'number') {
+  if (palette == null) {
+    palette = FALLBACKS;
+  } else if (typeof palette === 'string' || typeof palette === 'number') {
     palette = paletteFromSeed(palette);
-  } else if (palette != null) {
-    if (typeof palette !== 'object') throw new TypeError(`unsupported palette: ${typeof palette}`);
-    if (isThemeLike(palette)) palette = paletteFromTheme(palette);
-    else if (!KEYS.some(k => k in palette)) {
-      throw new TypeError(`unrecognized palette: expected a seed, Theme, DynamicScheme, or an object with ${KEYS.join('/')}`);
-    }
+  } else if (typeof palette !== 'object') {
+    throw new TypeError(`unsupported palette: ${typeof palette}`);
+  } else if (KEYS.some(k => k in palette)) {
+    checkPalette(palette, mode);
+  } else if (seedOf(palette) !== undefined) {
+    palette = paletteFromSeed(seedOf(palette));
+  } else {
+    throw new TypeError(`unrecognized palette: expected a seed, Theme, DynamicScheme, or an object with ${KEYS.join('/')}`);
   }
   const out = {};
   for (const [name, token] of Object.entries(TOKENS[mode])) {
@@ -143,8 +151,8 @@ export function nothingWidgetColors(palette, mode = 'light') {
       out[name] = token.static;
       continue;
     }
-    const [key, tone] = token.tone;
-    const hex = palette?.[key]?.[tone] ?? FALLBACKS[`${key}_${tone}`];
+    const [key, shade] = token.shade;
+    const hex = palette[key][shade];
     out[name] = token.lstar !== undefined ? withLstar(hex, token.lstar) : hex;
   }
   return out;
