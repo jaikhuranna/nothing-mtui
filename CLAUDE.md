@@ -34,13 +34,9 @@ cross-checks `TOKENS` in `index.js` against the real decompiled APK XML in
 (which resource each token's value came from: decompiled Java refs, resource
 refs, or fixture refs).
 
-**Gotcha:** this dev environment does not have Node/npm preinstalled and the
-sandbox blocks `tar` from creating executables (`Cannot mkdir: Operation not
-permitted`) even though plain file writes work fine. Workaround: download the
-Node tarball with `wget`, then extract it with Python's `tarfile` module
-instead of `tar` — that succeeds. A local Node build lives at
-`.tooling/node-v22.14.0-linux-x64/` (gitignored); prepend its `bin/` to
-`PATH` to get `node`/`npm`.
+**Node:** the system Node is 18. A Node 22 build lives at
+`.tooling/node-v22.14.0-linux-x64/` (gitignored); prepend its `bin/` to `PATH`
+before running `npm`.
 
 ## Layout
 
