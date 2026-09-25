@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { Hct, SchemeTonalSpot, TonalPalette, argbFromHex, hexFromArgb, themeFromSourceColor } from '@material/material-color-utilities';
-import { FALLBACKS, nothingWidgetColors, paletteFromSeed, TOKENS, withLstar } from './index.js';
+import { readFileSync } from 'node:fs';
+import { FALLBACK_SEED, nothingWidgetColors, paletteFromSeed, TOKENS, withLstar } from './index.js';
 
 for (const mode of ['light', 'dark']) {
   const colors = nothingWidgetColors(null, mode);
@@ -10,8 +11,9 @@ for (const mode of ['light', 'dark']) {
   }
 }
 
-const light = nothingWidgetColors(null, 'light');
-const dark = nothingWidgetColors(null, 'dark');
+// Pinned values for the 2021 spec (Android 14 to 16 QPR0).
+const light = nothingWidgetColors(null, 'light', { spec: '2021' });
+const dark = nothingWidgetColors(null, 'dark', { spec: '2021' });
 
 assert.equal(light.widgetBg, '#eff0f7');
 assert.equal(dark.widgetBg, '#191c20');
@@ -28,7 +30,8 @@ assert.equal(light.settingsBg, '#eff0f7');
 assert.equal(dark.settingsBg, '#1d2024', 'lStar=12 applied to neutral1_900');
 
 // seed string generates the same palette object
-assert.equal(nothingWidgetColors('#d71921', 'light').widgetBg, '#ffedea');
+assert.equal(nothingWidgetColors('#d71921', 'light', { spec: '2021' }).widgetBg, '#ffedea');
+assert.equal(nothingWidgetColors('#d71921', 'light').widgetBg, '#fdedeb', '2025 is the default');
 assert.deepEqual(
   nothingWidgetColors('#d71921', 'dark'),
   nothingWidgetColors(paletteFromSeed('#d71921'), 'dark'));
@@ -73,20 +76,52 @@ assert.throws(() => nothingWidgetColors({ neutral1: { 95: '#fafafa' } }, 'light'
   assert.throws(() => nothingWidgetColors(device, 'dark'), /neutral1_900/);
 }
 
-// Chromas Android 14-16 use for the system palette (SchemeTonalSpot, per
-// frameworks/libs/systemui ColorScheme). Written out here rather than read from
-// the library, so a wrong scheme in index.js can't pass by agreeing with itself.
-const ANDROID_14_CHROMA = { neutral1: 6, neutral2: 8, accent1: 36, accent2: 16 };
-for (const seed of ['#d71921', '#2e7d32', '#8a8f99', '#1b6ef3']) {
-  const hue = Hct.fromInt(argbFromHex(seed)).hue;
-  const palette = paletteFromSeed(seed);
-  for (const [key, chroma] of Object.entries(ANDROID_14_CHROMA)) {
-    const want = TonalPalette.fromHueAndChroma(hue, chroma);
-    for (const shade of [0, 10, 50, 100, 500, 900, 1000]) {
-      assert.equal(palette[key][shade], hexFromArgb(want.tone(100 - shade / 10)), `${seed} ${key}_${shade}`);
+// Chromas Android uses for the wallpaper palette, written out from AOSP rather
+// than read from index.js, so a wrong scheme there can't pass by agreeing with itself.
+const CHROMA = {
+  2021: { light: { neutral1: 6, neutral2: 8, accent1: 36, accent2: 16 } },
+  2025: {
+    light: { neutral1: 5, neutral2: 8.5, accent1: 32, accent2: 16 },
+    dark: { neutral1: 5, neutral2: 8.5, accent1: 26, accent2: 16 },
+  },
+};
+CHROMA[2021].dark = CHROMA[2021].light;
+for (const [spec, byMode] of Object.entries(CHROMA)) {
+  for (const [mode, chromas] of Object.entries(byMode)) {
+    for (const seed of ['#d71921', '#2e7d32', '#8a8f99', '#1b6ef3']) {
+      const hue = Hct.fromInt(argbFromHex(seed)).hue;
+      const palette = paletteFromSeed(seed, { spec, mode });
+      for (const [key, chroma] of Object.entries(chromas)) {
+        const want = TonalPalette.fromHueAndChroma(hue, chroma);
+        for (const shade of [0, 10, 50, 100, 500, 900, 1000]) {
+          assert.equal(palette[key][shade], hexFromArgb(want.tone(100 - shade / 10)), `${spec} ${mode} ${seed} ${key}_${shade}`);
+        }
+      }
     }
   }
 }
+
+// The 2025 spec against material-color-utilities 0.4.0's own output, every shade,
+// including the tone-99 special case for yellow hues (see scripts/make-mcu-2025-fixture.mjs).
+{
+  const fixture = JSON.parse(readFileSync(new URL('./scripts/mcu-2025.json', import.meta.url), 'utf8'));
+  for (const [seed, byMode] of Object.entries(fixture.seeds)) {
+    for (const mode of ['light', 'dark']) {
+      assert.deepEqual(paletteFromSeed(seed, { spec: '2025', mode }), byMode[mode], `${seed} ${mode}`);
+    }
+  }
+}
+
+// In the 2025 spec only accent1 changes with the mode.
+{
+  const [l, d] = ['light', 'dark'].map(mode => paletteFromSeed('#d71921', { mode }));
+  assert.notDeepEqual(l.accent1, d.accent1);
+  assert.deepEqual([l.neutral1, l.neutral2, l.accent2], [d.neutral1, d.neutral2, d.accent2]);
+  assert.deepEqual(paletteFromSeed('#d71921', { spec: '2021', mode: 'dark' }), paletteFromSeed('#d71921', { spec: '2021' }));
+}
+
+assert.throws(() => nothingWidgetColors('#d71921', 'light', { spec: '2024' }), /unknown spec/);
+assert.throws(() => paletteFromSeed('#d71921', { mode: 'Dark' }), /unknown mode/);
 
 // A near-grey seed has no usable hue, so AOSP substitutes a fixed blue.
 assert.ok(Hct.fromInt(argbFromHex('#888888')).chroma < 5, 'grey seed is below the chroma cutoff');
@@ -132,14 +167,16 @@ assert.throws(() => nothingWidgetColors(themeFromSourceColor(argbFromHex('#d7192
   const first = nothingWidgetColors('#2e7d32', 'light');
   first.widgetBg = 'changed';
   assert.notEqual(nothingWidgetColors('#2e7d32', 'light').widgetBg, 'changed');
-  assert.equal(nothingWidgetColors('#2e7d32', 'dark').widgetBg, paletteFromSeed('#2e7d32').neutral1[900]);
+  assert.equal(nothingWidgetColors('#2e7d32', 'dark').widgetBg, paletteFromSeed('#2e7d32', { mode: 'dark' }).neutral1[900]);
+  assert.equal(nothingWidgetColors('#2e7d32', 'dark').settingsAccent, paletteFromSeed('#2e7d32', { mode: 'dark' }).accent1[100]);
 }
 
 // ARGB numbers are what sourceColorFromImage and theme.source hand back.
 assert.deepEqual(nothingWidgetColors(0xffd71921, 'light'), nothingWidgetColors('#d71921', 'light'));
 assert.deepEqual(nothingWidgetColors(0xffd71921 | 0, 'light'), nothingWidgetColors('#d71921', 'light'), 'signed int');
 assert.throws(() => nothingWidgetColors(2 ** 33 + 0xd71921, 'light'), TypeError, 'out of 32-bit range');
-assert.deepEqual(nothingWidgetColors(undefined, 'light'), nothingWidgetColors(null, 'light'), 'undefined means FALLBACKS');
+assert.deepEqual(nothingWidgetColors(undefined, 'light'), nothingWidgetColors(null, 'light'), 'undefined means the fallback seed');
+assert.deepEqual(nothingWidgetColors(null, 'dark'), nothingWidgetColors(FALLBACK_SEED, 'dark'));
 
 // A DynamicScheme is rebuilt from its source color, grey-seed fallback included.
 for (const seed of ['#d71921', '#888888']) {
@@ -150,7 +187,7 @@ for (const seed of ['#d71921', '#888888']) {
 }
 
 // Shared exports can't be changed by one consumer for everyone else.
-assert.ok(Object.isFrozen(TOKENS.light.widgetBg.shade) && Object.isFrozen(FALLBACKS.neutral1));
+assert.ok(Object.isFrozen(TOKENS.light.widgetBg.shade));
 assert.throws(() => { 'use strict'; TOKENS.light.widgetBg.shade[1] = 900; }, TypeError);
 
 // Anything unrecognized should fail loudly rather than quietly return grey fallbacks.

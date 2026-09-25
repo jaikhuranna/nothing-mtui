@@ -1,10 +1,11 @@
-import { Hct, SchemeTonalSpot, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
+import { Hct, SchemeTonalSpot, TonalPalette, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
 
 // Android exposes wallpaper colors as system_{key}_{shade}, where shade N is
 // tone 100 - N/10 of that key's tonal palette.
 const SHADES = [0, 10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 const KEYS = ['neutral1', 'neutral2', 'accent1', 'accent2'];
-const HEX = /^#[0-9a-f]{6}$/i;
+const MODES = ['light', 'dark'];
+const SPECS = ['2025', '2021'];
 
 // A near-grey wallpaper has no real hue, so Android builds the palette from
 // this blue instead.
@@ -26,40 +27,79 @@ function argbFromSeed(seed) {
   throw new TypeError(`expected a #rrggbb color or an ARGB number, got ${JSON.stringify(seed)}`);
 }
 
-// Android 14 and later build the system palette with SchemeTonalSpot
-// (accent1 chroma 36, accent2 16, neutral1 6, neutral2 8). Android 12 and 13
-// used slightly different chromas, so colors there will be a little off.
-export function paletteFromSeed(seed) {
+function averageArgb(a, b) {
+  const channel = shift => Math.round((((a >>> shift) & 0xff) + ((b >>> shift) & 0xff)) / 2);
+  return (0xff000000 | (channel(16) << 16) | (channel(8) << 8) | channel(0)) >>> 0;
+}
+
+// Tone 99 of a yellow palette comes out greenish, so the 2025 spec averages
+// tones 98 and 100 there instead (libmonet TonalPalette, Android 16 QPR1+).
+function tone2025(palette, tone) {
+  if (tone === 99 && palette.hue >= 105 && palette.hue < 125) {
+    return averageArgb(palette.tone(98), palette.tone(100));
+  }
+  return palette.tone(tone);
+}
+
+function checkOptions(spec, mode) {
+  if (!SPECS.includes(spec)) throw new TypeError(`unknown spec: ${JSON.stringify(spec)} (expected ${SPECS.join(' or ')})`);
+  if (!MODES.includes(mode)) throw new Error(`unknown mode: ${mode}`);
+}
+
+// Android's wallpaper palette (the default TONAL_SPOT style). Chromas by spec:
+//   '2025' (Android 16 QPR1 and later): accent1 32, or 26 in dark mode;
+//          accent2 16; neutral1 5; neutral2 8.5
+//   '2021' (Android 14 to 16 QPR0):      accent1 36, accent2 16, neutral1 6,
+//          neutral2 8, the same in both modes
+// Android 12 and 13 used other chromas again and aren't modeled.
+export function paletteFromSeed(seed, { spec = '2025', mode = 'light' } = {}) {
+  checkOptions(spec, mode);
   let argb = argbFromSeed(seed);
   if (Hct.fromInt(argb).chroma < MIN_SEED_CHROMA) argb = argbFromHex(GOOGLE_BLUE);
-  const scheme = new SchemeTonalSpot(Hct.fromInt(argb), false, 0);
-  const palettes = {
-    neutral1: scheme.neutralPalette,
-    neutral2: scheme.neutralVariantPalette,
-    accent1: scheme.primaryPalette,
-    accent2: scheme.secondaryPalette,
-  };
+  const hue = Hct.fromInt(argb).hue;
+  let palettes;
+  let tone = (palette, t) => palette.tone(t);
+  if (spec === '2021') {
+    const scheme = new SchemeTonalSpot(Hct.fromInt(argb), false, 0);
+    palettes = {
+      neutral1: scheme.neutralPalette,
+      neutral2: scheme.neutralVariantPalette,
+      accent1: scheme.primaryPalette,
+      accent2: scheme.secondaryPalette,
+    };
+  } else {
+    // material-color-utilities only has the 2025 spec from 0.4.0, which can't
+    // be imported by plain Node, so its TONAL_SPOT chromas are written out here.
+    palettes = {
+      neutral1: TonalPalette.fromHueAndChroma(hue, 5),
+      neutral2: TonalPalette.fromHueAndChroma(hue, 5 * 1.7),
+      accent1: TonalPalette.fromHueAndChroma(hue, mode === 'dark' ? 26 : 32),
+      accent2: TonalPalette.fromHueAndChroma(hue, 16),
+    };
+    tone = tone2025;
+  }
   const out = {};
   for (const [key, palette] of Object.entries(palettes)) {
     out[key] = {};
-    for (const n of SHADES) out[key][n] = hexFromArgb(palette.tone(100 - n / 10));
+    for (const n of SHADES) out[key][n] = hexFromArgb(tone(palette, 100 - n / 10));
   }
   return out;
 }
 
 // Mirrors Android's ColorStateList.modulateColor: sets CIE L* and keeps hue
 // and chroma, and leaves the color alone when lStar is outside 0-100.
-export function withLstar(hex, lstar) {
-  if (typeof hex !== 'string' || !HEX.test(hex)) throw new TypeError(`expected a #rrggbb color, got ${JSON.stringify(hex)}`);
+export function withLstar(color, lstar) {
+  const hex = normalizeColor(color);
+  if (hex === undefined) throw new TypeError(`expected a '#rrggbb' color or an ARGB int, got ${JSON.stringify(color)}`);
   if (typeof lstar !== 'number') throw new TypeError(`expected lstar to be a number, got ${JSON.stringify(lstar)}`);
   if (!(lstar >= 0 && lstar <= 100)) return hex;
   const hct = Hct.fromInt(argbFromHex(hex));
   return hexFromArgb(Hct.from(hct.hue, hct.chroma, lstar).toInt());
 }
 
-// Used when no palette is given. It's generated from a blue-grey seed, not
-// taken from Android's own static colors.
-export const FALLBACKS = deepFreeze(paletteFromSeed('#8a8f99'));
+// Used when no palette is given. A blue-grey seed, not Android's own static
+// colors.
+export const FALLBACK_SEED = '#8a8f99';
 
 // Token mappings lifted from com.nothing.communitywidgets:
 //   light — res/values/colors.xml
@@ -110,15 +150,18 @@ export const TOKENS = deepFreeze({
   },
 });
 
-// nothingWidgetColors is often called twice per render (light and dark) with
-// the same seed, so keep the last palette around.
-let lastSeed, lastPalette;
-function cachedPalette(seed) {
-  if (seed !== lastSeed) {
-    lastPalette = paletteFromSeed(seed);
-    lastSeed = seed;
+// nothingWidgetColors is often called on every render with the same seed, so
+// keep the last few palettes around.
+const cache = new Map();
+function cachedPalette(seed, spec, mode) {
+  const key = `${typeof seed}:${seed}:${spec}:${mode}`;
+  let palette = cache.get(key);
+  if (!palette) {
+    palette = paletteFromSeed(seed, { spec, mode });
+    if (cache.size >= 8) cache.delete(cache.keys().next().value);
+    cache.set(key, palette);
   }
-  return lastPalette;
+  return palette;
 }
 
 // A Theme (themeFromSourceColor) or DynamicScheme carries the seed it was
@@ -162,13 +205,14 @@ function readDevicePalette(palette, mode) {
 
 // palette: a seed (#rrggbb or ARGB number), a material-color-utilities Theme
 // or DynamicScheme, a { neutral1: {shade: hex}, ... } palette read from a
-// device, or null/undefined for FALLBACKS.
-export function nothingWidgetColors(palette, mode = 'light') {
-  if (!Object.prototype.hasOwnProperty.call(TOKENS, mode)) throw new Error(`unknown mode: ${mode}`);
+// device, or null/undefined for FALLBACK_SEED. `spec` picks the Android
+// palette math for seeds (see paletteFromSeed).
+export function nothingWidgetColors(palette, mode = 'light', { spec = '2025' } = {}) {
+  checkOptions(spec, mode);
   if (palette == null) {
-    palette = FALLBACKS;
+    palette = cachedPalette(FALLBACK_SEED, spec, mode);
   } else if (typeof palette === 'string' || typeof palette === 'number') {
-    palette = cachedPalette(palette);
+    palette = cachedPalette(palette, spec, mode);
   } else if (typeof palette !== 'object') {
     throw new TypeError(`unsupported palette: ${typeof palette}`);
   } else if (KEYS.some(k => k in palette)) {
@@ -178,7 +222,7 @@ export function nothingWidgetColors(palette, mode = 'light') {
     if (seed === undefined) {
       throw new TypeError(`unrecognized palette: expected a seed, Theme, DynamicScheme, or an object with ${KEYS.join('/')}`);
     }
-    palette = cachedPalette(seed);
+    palette = cachedPalette(seed, spec, mode);
   }
   const out = {};
   for (const [name, token] of Object.entries(TOKENS[mode])) {

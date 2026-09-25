@@ -10,10 +10,9 @@ The token values are factual color data; the package is a mapping convenience.
 What the app does: widget backgrounds use Android's Material You neutrals
 (`system_neutral1_50` in light mode, `system_neutral1_900` in dark), foreground
 elements stay black or white, and accents use `system_accent1` and
-`system_accent2`. Android has one wallpaper palette for both modes, so a token
-the night resources don't override uses the same shade in dark mode. One
-nuance: dark `widget_settings_bg` adds `android:lStar="12"`, which this package
-applies on top of `system_neutral1_900`.
+`system_accent2`. A token the night resources don't override points at the same
+shade in dark mode. One nuance: dark `widget_settings_bg` adds
+`android:lStar="12"`, which this package applies on top of `system_neutral1_900`.
 
 ## Usage
 
@@ -29,13 +28,16 @@ import { nothingWidgetColors } from 'nothing-mtui';
 // Material You gives you a Theme; pass it straight in.
 const theme = themeFromSourceColor(argbFromHex('#d71921'));
 const colors = nothingWidgetColors(theme, 'dark');
-colors.widgetBg; // '#231918' — background for the Nothing widget
+colors.widgetBg; // '#221a19' — background for the Nothing widget
 
 // Or skip Material You and pass the wallpaper seed directly.
 nothingWidgetColors('#d71921', 'dark');
 
-// No palette: the FALLBACKS colors.
+// No palette: colors for FALLBACK_SEED.
 nothingWidgetColors(null, 'light');
+
+// Match a phone on Android 14 to 16 QPR0 instead of the newer default.
+nothingWidgetColors('#d71921', 'dark', { spec: '2021' });
 ```
 
 A runnable version of this is in `sample/material-you-to-nothing.mjs` in the
@@ -57,23 +59,32 @@ node sample/material-you-to-nothing.mjs '#2e7d32'
   `'#rrggbb'` (the `#` is optional) or ARGB ints, signed or unsigned, and come
   back as lowercase `'#rrggbb'`. 8-digit strings are refused, because Android
   writes them `#AARRGGBB` and CSS writes `#RRGGBBAA`;
-- `null` or `undefined`, for `FALLBACKS`.
+- `null` or `undefined`, for `FALLBACK_SEED`.
 
 Anything else throws instead of quietly returning grey fallback colors.
 
 ## Exports
 
-- `nothingWidgetColors(palette, mode)` — resolved tokens for `'light'` / `'dark'`.
-- `paletteFromSeed(seed)` — builds the wallpaper palette the way Android 14–16 do,
-  via `SchemeTonalSpot` (accent1 chroma 36, accent2 16, neutral1 6, neutral2 8).
-  Android 12 and 13 used slightly different chromas, so colors on those versions
-  will be a little off. A seed with chroma under 5 has no usable hue, so Android
-  substitutes a fixed blue (`#1b6ef3`); this does the same.
-- `withLstar(hex, lstar)` — sets CIE L\* and keeps hue/chroma, the way Android
-  applies an `android:lStar` attribute (an lStar outside 0–100 is ignored).
+- `nothingWidgetColors(palette, mode, { spec })` — resolved tokens for `'light'`
+  or `'dark'`. `spec` is described below and only affects seeds.
+- `paletteFromSeed(seed, { spec, mode })` — the wallpaper palette Android builds
+  from a seed, using its default "tonal spot" style. Android changed the math in
+  Android 16 QPR1, so there are two specs:
+
+  | `spec` | Android | accent1 | accent2 | neutral1 | neutral2 |
+  |---|---|---|---|---|---|
+  | `'2025'` (default) | 16 QPR1 and later | 32, or 26 in dark mode | 16 | 5 | 8.5 |
+  | `'2021'` | 14 to 16 QPR0 | 36 | 16 | 6 | 8 |
+
+  The numbers are chromas. Android 12 and 13 used other values and aren't
+  covered. A seed with chroma under 5 has no usable hue, so Android swaps in a
+  fixed blue (`#1b6ef3`), and this does the same.
+- `withLstar(color, lstar)` — sets CIE L\* and keeps hue/chroma, the way Android
+  applies an `android:lStar` attribute. Takes `'#rrggbb'` or an ARGB int and
+  returns lowercase `'#rrggbb'`; an lStar outside 0–100 leaves the color as is.
 - `TOKENS` — the raw token-to-shade mapping (frozen).
-- `FALLBACKS` — the palette used for `null`, generated from the blue-grey seed
-  `#8a8f99` (frozen). It is not Android's own static fallback colors.
+- `FALLBACK_SEED` — `'#8a8f99'`, the blue-grey seed used for `null`. It is not
+  Android's own static fallback colors.
 
 ## Tokens
 

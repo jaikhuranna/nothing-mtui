@@ -1,4 +1,9 @@
 export type Mode = 'light' | 'dark';
+/**
+ * Which Android palette math to use for seeds. '2025' is Android 16 QPR1 and
+ * later (the default); '2021' is Android 14 to 16 QPR0.
+ */
+export type Spec = '2025' | '2021';
 export type PaletteKey = 'neutral1' | 'neutral2' | 'accent1' | 'accent2';
 /** Android shade, as in `system_neutral1_50`. Not a Material tone. */
 export type Shade = 0 | 10 | 50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 1000;
@@ -39,20 +44,29 @@ export type Token =
 
 /**
  * Nothing widget colors for a wallpaper. A Theme or DynamicScheme is rebuilt
- * from the seed it carries; `null` or `undefined` uses `FALLBACKS`.
+ * from the seed it carries; `null` or `undefined` uses `FALLBACK_SEED`.
+ * `spec` only matters for seeds, not for a device palette.
  */
 export function nothingWidgetColors(
   palette: Seed | SeededScheme | DevicePalette | null | undefined,
   mode?: Mode,
+  options?: { spec?: Spec },
 ): WidgetColors;
 
-/** The wallpaper palette Android 14–16 build from a seed (SchemeTonalSpot). */
-export function paletteFromSeed(seed: Seed): Palette;
+/**
+ * The wallpaper palette Android builds from a seed (its default TONAL_SPOT
+ * style). In the 2025 spec, accent1 differs between light and dark mode.
+ */
+export function paletteFromSeed(seed: Seed, options?: { spec?: Spec; mode?: Mode }): Palette;
 
-/** Sets CIE L* and keeps hue/chroma, like `android:lStar`. Out-of-range lStar returns `hex` unchanged. */
-export function withLstar(hex: string, lstar: number): string;
+/**
+ * Sets CIE L* and keeps hue/chroma, like `android:lStar`. Takes '#rrggbb'
+ * ('#' optional) or an ARGB int and returns lowercase '#rrggbb'; an lStar
+ * outside 0–100 leaves the color unchanged.
+ */
+export function withLstar(color: string | number, lstar: number): string;
 
 export const TOKENS: { readonly [M in Mode]: { readonly [T in TokenName]: Token } };
 
-/** Palette generated from the blue-grey seed `#8a8f99`, used for `null`. */
-export const FALLBACKS: { readonly [K in PaletteKey]: { readonly [S in Shade]: string } };
+/** Seed used when no palette is given: blue-grey `#8a8f99`, not Android's own static colors. */
+export const FALLBACK_SEED: '#8a8f99';

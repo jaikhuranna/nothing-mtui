@@ -11,9 +11,9 @@ given either a wallpaper seed color or a `material-color-utilities` Theme.
 The token-to-resource mapping (e.g. `widgetBg` → `system_neutral1_50` in
 light, `system_neutral1_900` in dark) was extracted by decompiling the
 `com.nothing.communitywidgets` APK; the palette math that turns a seed color
-into the full set of Material You tones follows Android 14–16's wallpaper
-`ColorScheme`, which builds its palettes with
-`@material/material-color-utilities`'s `SchemeTonalSpot`.
+into the full set of Material You tones follows Android's wallpaper
+`ColorScheme` (default TONAL_SPOT style), in two versions: the 2025 spec
+(Android 16 QPR1+, the default) and the 2021 spec (Android 14 to 16 QPR0).
 
 On native Android (Kotlin/Java) and Flutter, the OS/framework already
 resolves the Material You palette from the live wallpaper — those platforms
@@ -41,7 +41,7 @@ before running `npm`.
 ## Layout
 
 - `index.js` — the published package. Exports `nothingWidgetColors`,
-  `paletteFromSeed`, `withLstar`, and the frozen `TOKENS` / `FALLBACKS`.
+  `paletteFromSeed`, `withLstar`, the frozen `TOKENS`, and `FALLBACK_SEED`.
   Every input is either reduced to a seed (hex, ARGB number, Theme,
   DynamicScheme → `paletteFromSeed`) or is a complete device palette keyed by
   Android shade (`neutral1[50]`), which is validated; anything else throws.
@@ -79,12 +79,22 @@ before running `npm`.
   `sample/apk-fixtures/`. All three are gitignored.
 - Not affiliated with Nothing Technology Limited; keep the README disclaimer
   saying so.
-- Palette generation goes through `SchemeTonalSpot`, which is what Android
-  14–16 use. Chromas by version (accent1/accent2/neutral1/neutral2): Android 12
-  `CorePalette` max(48,seed)/16/4/8, Android 13 36/16/4/8, Android 14+
-  36/16/6/8. `test.js` checks the 14+ numbers against hand-written constants,
-  and the lab's reference side hand-writes them too; keep both independent of
-  `index.js`.
+- Palette chromas (accent1/accent2/neutral1/neutral2), from AOSP libmonet and
+  frameworks/libs/systemui `ColorScheme`: Android 12 `CorePalette`
+  max(48,seed)/16/4/8, Android 13 36/16/4/8, Android 14 to 16 QPR0 (spec
+  '2021') 36/16/6/8, Android 16 QPR1+ (spec '2025', libmonet
+  `DEFAULT_SPEC_VERSION = SPEC_2025`) 32 light or 26 dark/16/5/8.5, plus tone 99
+  of a yellow hue (105-125) = mean of tones 98 and 100. Only 2021 and 2025 are
+  implemented. Dark widget backgrounds on a Nothing phone (2026 screenshots)
+  measured `#191d19`, which only chroma 5 reproduces, so 2025 is the default.
+- The 2021 spec comes from material-color-utilities 0.2.7's `SchemeTonalSpot`.
+  The 2025 spec is hand-written in `index.js`, because 0.3.0 doesn't have it and
+  0.4.0 can't be imported by plain Node (extensionless imports). test.js checks
+  it against `scripts/mcu-2025.json`, generated from 0.4.0 by
+  `scripts/make-mcu-2025-fixture.mjs` (needs Node 18's
+  `--experimental-specifier-resolution=node`). test.js also checks both specs
+  against hand-written chromas, and the lab's reference side hand-writes them
+  too; keep both independent of `index.js`.
 - `sample/lab` reads the token→resource map from `scripts/token-map.json`;
   don't reintroduce a hard-coded copy. It must be served over HTTP from the
   repo root (`python3 -m http.server`), since it loads `/node_modules/...`.

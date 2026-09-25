@@ -55,6 +55,10 @@
   <input type="color" id="seed" value="#d71921" title="seed color">
   <label class="drop" id="drop">upload wallpaper image <input type="file" id="file" accept="image/*" hidden></label>
   <button id="mode">toggle dark</button>
+  <select id="spec" title="Android palette math">
+    <option value="2025">Android 16 QPR1+ (2025 spec)</option>
+    <option value="2021">Android 14 to 16 QPR0 (2021 spec)</option>
+  </select>
   <span id="summary"></span>
 </div>
 <div class="seedline">seed from image: <span class="sw" id="seedsw" style="display:none"></span><span id="seedtext">none (using picked color)</span></div>
@@ -81,33 +85,32 @@ Android shrinks the wallpaper differently and ranks with its own seed picker, so
 top pick can differ.</p>
 
 <script type="module">
-import { nothingWidgetColors, paletteFromSeed } from '../../index.js';
+import { nothingWidgetColors } from '../../index.js';
 import { Hct, QuantizerCelebi, Score, TonalPalette, argbFromHex, hexFromArgb } from '@material/material-color-utilities';
 
 let seed = document.getElementById('seed').value;
-let palette = paletteFromSeed(seed);
+let spec = '2025';
 let seedSource = 'picked';
 
 // The APK side must not resolve system_* through the package's own palette, or
 // the MATCH/DIFF table is circular and can only validate the token->resource
-// map. So this side writes out Android 14+'s chromas by hand, while the package
-// gets its values from SchemeTonalSpot.
-let refCache = { seed: null, palette: null };
-function refPalette() {
-  if (refCache.seed !== seed) {
-    const proposed = Hct.fromInt(argbFromHex(seed));
-    const src = Hct.fromInt(argbFromHex(proposed.chroma < 5 ? '#1b6ef3' : seed));
-    refCache = {
-      seed,
-      palette: {
-        neutral1: TonalPalette.fromHueAndChroma(src.hue, 6),
-        neutral2: TonalPalette.fromHueAndChroma(src.hue, 8),
-        accent1: TonalPalette.fromHueAndChroma(src.hue, 36),
-        accent2: TonalPalette.fromHueAndChroma(src.hue, 16),
-      },
-    };
+// map. So this side writes out Android's chromas by hand for each spec.
+const REF_CHROMA = {
+  2021: () => ({ neutral1: 6, neutral2: 8, accent1: 36, accent2: 16 }),
+  2025: dark => ({ neutral1: 5, neutral2: 8.5, accent1: dark ? 26 : 32, accent2: 16 }),
+};
+function refShade(key, shade, mode) {
+  const proposed = Hct.fromInt(argbFromHex(seed));
+  const hue = Hct.fromInt(argbFromHex(proposed.chroma < 5 ? '#1b6ef3' : seed)).hue;
+  const palette = TonalPalette.fromHueAndChroma(hue, REF_CHROMA[spec](mode === 'dark')[key]);
+  const tone = 100 - shade / 10;
+  // 2025 spec: tone 99 of a yellow (hue 105-125) is the mean of tones 98 and 100.
+  if (spec === '2025' && tone === 99 && hue >= 105 && hue < 125) {
+    const [a, b] = [palette.tone(98), palette.tone(100)];
+    const mix = sh => Math.round((((a >>> sh) & 255) + ((b >>> sh) & 255)) / 2);
+    return '#' + [16, 8, 0].map(sh => mix(sh).toString(16).padStart(2, '0')).join('');
   }
-  return refCache.palette;
+  return hexFromArgb(palette.tone(tone));
 }
 
 // ---- Android resource shim over the real decompiled fixtures ----
@@ -144,7 +147,7 @@ function resolve(value, mode, seen = new Set()) {
     if (sys === 'white') return '#ffffff';
     if (sys === 'black') return '#000000';
     const m = sys.match(/^system_(neutral1|neutral2|accent1|accent2)_(\d+)$/);
-    if (m) return hexFromArgb(refPalette()[m[1]].tone(100 - Number(m[2]) / 10));
+    if (m) return refShade(m[1], Number(m[2]), mode);
     throw new Error(`unshimmed system color: ${sys}`);
   }
   if (value.startsWith('@color/')) {
@@ -189,7 +192,8 @@ function extractSeedFromImageData(data) {
   }
   if (!px.length) return { seed: null, candidates: [] };
   const quantized = QuantizerCelebi.quantize(px, 128);
-  const candidates = Score.score(quantized, { desired: 5 }).map(hexFromArgb);
+  // Android falls back to #1b6ef3 for a grey wallpaper; the library's default is #4285f4.
+  const candidates = Score.score(quantized, { desired: 5, fallbackColorARGB: 0xff1b6ef3 }).map(hexFromArgb);
   return { seed: candidates[0], candidates };
 }
 
@@ -203,7 +207,7 @@ async function extractFromFile(file) {
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
     const data = canvas.getContext('2d').getImageData(0, 0, w, h).data;
     const r = extractSeedFromImageData(data);
-    if (r.seed) { seed = r.seed; seedSource = file.name; palette = paletteFromSeed(seed); }
+    if (r.seed) { seed = r.seed; seedSource = file.name; }
     showSeed(r.candidates);
     render();
     return r.seed;
@@ -256,7 +260,7 @@ let mode = 'light';
 function render() {
   document.body.classList.toggle('dark', mode === 'dark');
   const apk = apkColors(mode);
-  const pkg = nothingWidgetColors(palette, mode);
+  const pkg = nothingWidgetColors(seed, mode, { spec });
   document.getElementById('apkMocks').innerHTML = mockCard(apk) + mockSnake(apk) + mockMedia(apk);
   document.getElementById('pkgMocks').innerHTML = mockCard(pkg) + mockSnake(pkg) + mockMedia(pkg);
   const td = v => `<td><span class="sw" style="background:${v}"></span>${v ?? 'undefined'}</td>`;
@@ -267,18 +271,19 @@ function render() {
   const match = Object.keys(TOKEN_TO_RES).filter(n => apk[n] === pkg[n]).length;
   const total = Object.keys(TOKEN_TO_RES).length;
   const s = document.getElementById('summary');
-  s.textContent = `${match}/${total} tokens identical (${mode}, seed ${seedSource})`;
+  s.textContent = `${match}/${total} tokens identical (${mode}, ${spec} spec, seed ${seedSource})`;
   s.className = match === total ? 'pass' : 'fail';
   return { match, total };
 }
 
 function setSeedHex(hex) {
-  seed = hex; seedSource = 'picked'; palette = paletteFromSeed(seed);
+  seed = hex; seedSource = 'picked';
   showSeed(); render();
 }
 
 document.getElementById('seed').addEventListener('input', e => setSeedHex(e.target.value));
 document.getElementById('mode').addEventListener('click', () => { mode = mode === 'light' ? 'dark' : 'light'; render(); });
+document.getElementById('spec').addEventListener('change', e => { spec = e.target.value; render(); });
 const fileInput = document.getElementById('file');
 fileInput.addEventListener('change', () => fileInput.files[0] && extractFromFile(fileInput.files[0]));
 const drop = document.getElementById('drop');
@@ -286,7 +291,7 @@ drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add(
 drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
 drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) extractFromFile(f); });
 
-window.__lab = { render, setSeedHex, extractSeedFromImageData, extractFromFile, get state() { return { seed, seedSource, mode }; } };
+window.__lab = { render, setSeedHex, extractSeedFromImageData, extractFromFile, setSpec: v => { spec = v; document.getElementById('spec').value = v; render(); }, get state() { return { seed, seedSource, mode, spec }; } };
 showSeed();
 render();
 </script>
