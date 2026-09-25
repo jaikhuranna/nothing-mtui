@@ -278,6 +278,7 @@ function render() {
 
 function setSeedHex(hex) {
   seed = hex; seedSource = 'picked';
+  document.getElementById('seed').value = hex;
   showSeed(); render();
 }
 

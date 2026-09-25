@@ -14,6 +14,12 @@ elements stay black or white, and accents use `system_accent1` and
 shade in dark mode. One nuance: dark `widget_settings_bg` adds
 `android:lStar="12"`, which this package applies on top of `system_neutral1_900`.
 
+## What it looks like
+
+The same widgets, colored by the package for four wallpaper colors:
+
+![Quote, snake and media widget mocks colored by nothing-mtui for four seed colors, in light and dark mode](docs/gallery.png)
+
 ## Usage
 
 Works in browsers, React Native and Node 18+. It's an ES module, so use
@@ -142,6 +148,11 @@ layout/mediaplayer_widget_container.xml
 ```
 
 `sample/apk-fixtures/` is gitignored, so they won't get committed by accident.
+
+With the fixtures in place, the lab page resolves each token through the app's
+own resource files on the left and calls the package on the right:
+
+![The sample/lab page showing all 18 tokens matching between the app's resources and the package](docs/lab.png)
 
 `sample/lab` has to be served over HTTP from the repo root, because it loads
 `/node_modules/...` and `scripts/token-map.json`:
