@@ -5,14 +5,14 @@ Nothing widget color tokens, taken from the `com.nothing.communitywidgets` app
 `res/values-night/colors.xml` for dark.
 
 Unofficial and not affiliated with, endorsed by, or supported by Nothing Technology Limited.
-The token values are factual color data; the package is a mapping convenience.
+The token values are plain color data; the package just saves you looking them up.
 
-What the app does: widget backgrounds use Android's Material You neutrals
+In the app, widget backgrounds use Android's Material You neutrals
 (`system_neutral1_50` in light mode, `system_neutral1_900` in dark), foreground
 elements stay black or white, and accents use `system_accent1` and
 `system_accent2`. A token the night resources don't override points at the same
-shade in dark mode. One nuance: dark `widget_settings_bg` adds
-`android:lStar="12"`, which this package applies on top of `system_neutral1_900`.
+shade in dark mode. Dark `widget_settings_bg` also adds `android:lStar="12"`,
+which this package applies on top of `system_neutral1_900`.
 
 ## What it looks like
 
@@ -92,8 +92,8 @@ Anything else throws instead of quietly returning grey fallback colors.
   applies an `android:lStar` attribute. Takes any color a seed can be and
   returns lowercase `'#rrggbb'`; an lStar outside 0–100 leaves the color as is.
 - `TOKENS` — the raw token-to-shade mapping (frozen).
-- `FALLBACK_SEED` — `'#8a8f99'`, the blue-grey seed used for `null`. It is not
-  Android's own static fallback colors.
+- `FALLBACK_SEED` — `'#8a8f99'`, the blue-grey seed used for `null`. The colors
+  it gives aren't Android's own static fallback colors.
 
 ## Tokens
 

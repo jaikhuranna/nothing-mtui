@@ -20,7 +20,7 @@ const colorXml = read('color/default_color_background_dark.xml');
 const tokenMap = JSON.parse(readFileSync(new URL('scripts/token-map.json', root), 'utf8'));
 
 // Cross-check: every token's resource must be referenced by decompiled code,
-// decompiled resources, or committed fixtures. `declared_only` tokens are
+// decompiled resources, or the local layout fixtures. `declared_only` tokens are
 // exempt but must still be declared in colors.xml, and are reported below so
 // the exemption stays visible rather than silently absorbing a typo.
 const declaredOnly = [];

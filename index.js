@@ -33,8 +33,8 @@ function averageArgb(a, b) {
   return (0xff000000 | (channel(16) << 16) | (channel(8) << 8) | channel(0)) >>> 0;
 }
 
-// Tone 99 of a yellow palette comes out greenish, so the 2025 spec averages
-// tones 98 and 100 there instead (libmonet TonalPalette, Android 16 QPR1+).
+// For yellow hues (105-125), the 2025 spec makes tone 99 the average of tones
+// 98 and 100 (libmonet TonalPalette, Android 16 QPR1+).
 function tone2025(palette, tone) {
   if (tone === 99 && palette.hue >= 105 && palette.hue < 125) {
     return averageArgb(palette.tone(98), palette.tone(100));
