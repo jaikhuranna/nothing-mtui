@@ -54,14 +54,14 @@ export type Token =
 export function nothingWidgetColors(
   palette: Seed | SeededScheme | DevicePalette | null | undefined,
   mode?: Mode,
-  options?: { spec?: Spec },
+  options?: { spec?: Spec } | null,
 ): WidgetColors;
 
 /**
  * The wallpaper palette Android builds from a seed (its default TONAL_SPOT
  * style). In the 2025 spec, accent1 differs between light and dark mode.
  */
-export function paletteFromSeed(seed: Seed, options?: { spec?: Spec; mode?: Mode }): Palette;
+export function paletteFromSeed(seed: Seed, options?: { spec?: Spec; mode?: Mode } | null): Palette;
 
 /**
  * Sets CIE L* and keeps hue/chroma, like `android:lStar`. Takes anything

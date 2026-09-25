@@ -42,6 +42,14 @@ function tone2025(palette, tone) {
   return palette.tone(tone);
 }
 
+function readOptions(options, name) {
+  if (options == null) return {};
+  if (typeof options !== 'object') {
+    throw new TypeError(`${name} options must be an object like { spec: '2021' }, got ${JSON.stringify(options)}`);
+  }
+  return options;
+}
+
 function checkOptions(spec, mode) {
   if (!SPECS.includes(spec)) throw new TypeError(`unknown spec: ${JSON.stringify(spec)} (expected ${SPECS.join(' or ')})`);
   if (!MODES.includes(mode)) throw new TypeError(`unknown mode: ${JSON.stringify(mode)} (expected light or dark)`);
@@ -56,7 +64,7 @@ function checkOptions(spec, mode) {
 // The result records its spec and mode, because a 2025 palette only fits the
 // mode it was built for; nothingWidgetColors refuses it in the other one.
 export function paletteFromSeed(seed, options) {
-  const { spec = '2025', mode = 'light' } = options ?? {};
+  const { spec = '2025', mode = 'light' } = readOptions(options, 'paletteFromSeed');
   checkOptions(spec, mode);
   let argb = argbFromSeed(seed);
   if (Hct.fromInt(argb).chroma < MIN_SEED_CHROMA) argb = argbFromHex(GOOGLE_BLUE);
@@ -94,7 +102,7 @@ export function paletteFromSeed(seed, options) {
 // and chroma, and leaves the color alone when lStar is outside 0-100.
 export function withLstar(color, lstar) {
   const hex = normalizeColor(color);
-  if (hex === undefined) throw new TypeError(`expected a '#rrggbb' color or an ARGB int, got ${JSON.stringify(color)}`);
+  if (hex === undefined) throw new TypeError(`expected a '#rrggbb' color or an opaque ARGB int, got ${JSON.stringify(color)}`);
   if (typeof lstar !== 'number') throw new TypeError(`expected lstar to be a number, got ${JSON.stringify(lstar)}`);
   if (!(lstar >= 0 && lstar <= 100)) return hex;
   const hct = Hct.fromInt(argbFromHex(hex));
@@ -160,11 +168,13 @@ const cache = new Map();
 function cachedPalette(seed, spec, mode) {
   const key = `${typeof seed}:${seed}:${spec}:${mode}`;
   let palette = cache.get(key);
-  if (!palette) {
+  if (palette) {
+    cache.delete(key); // re-inserted below, so the least recently used goes first
+  } else {
     palette = paletteFromSeed(seed, { spec, mode });
     if (cache.size >= 8) cache.delete(cache.keys().next().value);
-    cache.set(key, palette);
   }
+  cache.set(key, palette);
   return palette;
 }
 
@@ -215,7 +225,7 @@ function readDevicePalette(palette, mode) {
 // device, or null/undefined for FALLBACK_SEED. `spec` picks the Android
 // palette math for seeds (see paletteFromSeed).
 export function nothingWidgetColors(palette, mode = 'light', options) {
-  const { spec = '2025' } = options ?? {};
+  const { spec = '2025' } = readOptions(options, 'nothingWidgetColors');
   checkOptions(spec, mode);
   if (palette == null) {
     palette = cachedPalette(FALLBACK_SEED, spec, mode);

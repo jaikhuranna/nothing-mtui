@@ -136,6 +136,9 @@ assert.throws(() => paletteFromSeed('#d71921', { mode: 'Dark' }), TypeError);
 // A null options object means the defaults, as React Native callers often forward one.
 assert.deepEqual(nothingWidgetColors('#d71921', 'dark', null), nothingWidgetColors('#d71921', 'dark'));
 assert.deepEqual(paletteFromSeed('#d71921', null), paletteFromSeed('#d71921'));
+// Passing a mode or spec where the options object goes is a likely slip; it must not be ignored.
+assert.throws(() => paletteFromSeed('#d71921', 'dark'), /options must be an object/);
+assert.throws(() => nothingWidgetColors('#d71921', 'dark', '2021'), /options must be an object/);
 
 // A near-grey seed has no usable hue, so AOSP substitutes a fixed blue.
 assert.ok(Hct.fromInt(argbFromHex('#888888')).chroma < 5, 'grey seed is below the chroma cutoff');

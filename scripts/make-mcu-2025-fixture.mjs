@@ -3,8 +3,8 @@
 // paletteFromSeed(seed, { spec: '2025' }).
 //
 // 0.4.0 leaves file extensions off its imports, so plain Node can't load it.
-// Node 18 can, with a flag:
-//   mkdir /tmp/mcu && cd /tmp/mcu && npm i @material/material-color-utilities@0.4.0
+// Node 18 can, with a flag. From the repo root:
+//   (mkdir -p /tmp/mcu && cd /tmp/mcu && npm i @material/material-color-utilities@0.4.0)
 //   node18 --experimental-specifier-resolution=node scripts/make-mcu-2025-fixture.mjs /tmp/mcu
 import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';

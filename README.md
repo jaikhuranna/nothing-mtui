@@ -83,7 +83,7 @@ Anything else throws instead of quietly returning grey fallback colors.
   covered. A seed with chroma under 5 has no usable hue, so Android swaps in a
   fixed blue (`#1b6ef3`), and this does the same.
 - `withLstar(color, lstar)` — sets CIE L\* and keeps hue/chroma, the way Android
-  applies an `android:lStar` attribute. Takes `'#rrggbb'` or an ARGB int and
+  applies an `android:lStar` attribute. Takes any color a seed can be and
   returns lowercase `'#rrggbb'`; an lStar outside 0–100 leaves the color as is.
 - `TOKENS` — the raw token-to-shade mapping (frozen).
 - `FALLBACK_SEED` — `'#8a8f99'`, the blue-grey seed used for `null`. It is not
