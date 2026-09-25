@@ -8,18 +8,22 @@ export type PaletteKey = 'neutral1' | 'neutral2' | 'accent1' | 'accent2';
 /** Android shade, as in `system_neutral1_50`. Not a Material tone. */
 export type Shade = 0 | 10 | 50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 1000;
 
-/** A seed color: `'#rrggbb'`, `'#rgb'`, or a 32-bit ARGB int (signed or unsigned). */
+/** A color: `'#rrggbb'` or `'#rgb'` (`#` optional), or an opaque 32-bit ARGB int, signed or unsigned. */
 export type Seed = string | number;
 
-/** Every shade of every key, as built by `paletteFromSeed`. */
-export type Palette = Record<PaletteKey, Record<Shade, string>>;
+/**
+ * Every shade of every key, as built by `paletteFromSeed`. It records the spec
+ * and mode it was built for; `nothingWidgetColors` refuses it in the other mode.
+ */
+export type Palette = Record<PaletteKey, Record<Shade, string>> & { readonly spec: Spec; readonly mode: Mode };
 
 /**
- * A palette read off a device. Colors may be '#rrggbb' ('#' optional) or ARGB
- * ints, signed or unsigned. Only the shades the tokens use are required; a
- * missing or unreadable one throws a TypeError naming it.
+ * A palette read off a device, in the mode you'll use it for. Colors are
+ * anything `Seed` accepts. Only the shades the tokens use are required; a
+ * missing or unreadable one throws a TypeError naming it. If `mode` is set and
+ * doesn't match, it throws too.
  */
-export type DevicePalette = Record<PaletteKey, Partial<Record<Shade, string | number>>>;
+export type DevicePalette = Record<PaletteKey, Partial<Record<Shade, string | number>>> & { readonly mode?: Mode };
 
 /**
  * Anything carrying the seed it was built from: a material-color-utilities
@@ -60,11 +64,11 @@ export function nothingWidgetColors(
 export function paletteFromSeed(seed: Seed, options?: { spec?: Spec; mode?: Mode }): Palette;
 
 /**
- * Sets CIE L* and keeps hue/chroma, like `android:lStar`. Takes '#rrggbb'
- * ('#' optional) or an ARGB int and returns lowercase '#rrggbb'; an lStar
+ * Sets CIE L* and keeps hue/chroma, like `android:lStar`. Takes anything
+ * `Seed` accepts and returns lowercase '#rrggbb'; an lStar
  * outside 0–100 leaves the color unchanged.
  */
-export function withLstar(color: string | number, lstar: number): string;
+export function withLstar(color: Seed, lstar: number): string;
 
 export const TOKENS: { readonly [M in Mode]: { readonly [T in TokenName]: Token } };
 

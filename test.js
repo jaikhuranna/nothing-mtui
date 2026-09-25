@@ -32,13 +32,22 @@ assert.equal(dark.settingsBg, '#1d2024', 'lStar=12 applied to neutral1_900');
 // seed string generates the same palette object
 assert.equal(nothingWidgetColors('#d71921', 'light', { spec: '2021' }).widgetBg, '#ffedea');
 assert.equal(nothingWidgetColors('#d71921', 'light').widgetBg, '#fdedeb', '2025 is the default');
-assert.deepEqual(
-  nothingWidgetColors('#d71921', 'dark'),
-  nothingWidgetColors(paletteFromSeed('#d71921'), 'dark'));
+// A palette built for a mode gives the same colors as the seed in that mode,
+// and is refused in the other mode (2025 accent1 differs between them).
+for (const seed of ['#d71921', '#2e7d32', '#b5b000']) {
+  for (const mode of ['light', 'dark']) {
+    assert.deepEqual(nothingWidgetColors(paletteFromSeed(seed, { mode }), mode), nothingWidgetColors(seed, mode), `${seed} ${mode}`);
+  }
+  assert.throws(() => nothingWidgetColors(paletteFromSeed(seed), 'dark'), /built for light mode/);
+}
+assert.notEqual(
+  nothingWidgetColors('#2e7d32', 'dark').settingsAccent,
+  paletteFromSeed('#2e7d32').accent1[100],
+  'this seed is one where a light palette would give wrong dark accents');
 
 // A palette read off a device is used as-is.
 {
-  const device = structuredClone(paletteFromSeed('#2e7d32'));
+  const { mode: _m1, ...device } = structuredClone(paletteFromSeed('#2e7d32'));
   device.neutral1[50] = '#fafafa';
   device.neutral1[900] = '#111111';
   device.neutral1[10] = '#0a0a0a';
@@ -55,7 +64,7 @@ assert.throws(() => nothingWidgetColors({ neutral1: { 50: '#fafafa' } }, 'light'
 // Tone keys (95, 10...) instead of shade keys (50, 900...) are a likely mix-up.
 assert.throws(() => nothingWidgetColors({ neutral1: { 95: '#fafafa' } }, 'light'), /missing .*not tones/);
 {
-  const device = structuredClone(paletteFromSeed('#2e7d32'));
+  const { mode: _m2, ...device } = structuredClone(paletteFromSeed('#2e7d32'));
   // Colors in the forms Android hands out are accepted and come back as #rrggbb.
   device.neutral1[900] = 0xff111111;
   assert.equal(nothingWidgetColors(device, 'dark').widgetBg, '#111111', 'ARGB int');
@@ -107,7 +116,7 @@ for (const [spec, byMode] of Object.entries(CHROMA)) {
   const fixture = JSON.parse(readFileSync(new URL('./scripts/mcu-2025.json', import.meta.url), 'utf8'));
   for (const [seed, byMode] of Object.entries(fixture.seeds)) {
     for (const mode of ['light', 'dark']) {
-      assert.deepEqual(paletteFromSeed(seed, { spec: '2025', mode }), byMode[mode], `${seed} ${mode}`);
+      assert.deepEqual(paletteFromSeed(seed, { spec: '2025', mode }), { spec: '2025', mode, ...byMode[mode] }, `${seed} ${mode}`);
     }
   }
 }
@@ -117,11 +126,16 @@ for (const [spec, byMode] of Object.entries(CHROMA)) {
   const [l, d] = ['light', 'dark'].map(mode => paletteFromSeed('#d71921', { mode }));
   assert.notDeepEqual(l.accent1, d.accent1);
   assert.deepEqual([l.neutral1, l.neutral2, l.accent2], [d.neutral1, d.neutral2, d.accent2]);
-  assert.deepEqual(paletteFromSeed('#d71921', { spec: '2021', mode: 'dark' }), paletteFromSeed('#d71921', { spec: '2021' }));
+  const { mode: _d, ...dark2021 } = paletteFromSeed('#d71921', { spec: '2021', mode: 'dark' });
+  const { mode: _l, ...light2021 } = paletteFromSeed('#d71921', { spec: '2021' });
+  assert.deepEqual(dark2021, light2021, 'the 2021 spec has one palette for both modes');
 }
 
 assert.throws(() => nothingWidgetColors('#d71921', 'light', { spec: '2024' }), /unknown spec/);
-assert.throws(() => paletteFromSeed('#d71921', { mode: 'Dark' }), /unknown mode/);
+assert.throws(() => paletteFromSeed('#d71921', { mode: 'Dark' }), TypeError);
+// A null options object means the defaults, as React Native callers often forward one.
+assert.deepEqual(nothingWidgetColors('#d71921', 'dark', null), nothingWidgetColors('#d71921', 'dark'));
+assert.deepEqual(paletteFromSeed('#d71921', null), paletteFromSeed('#d71921'));
 
 // A near-grey seed has no usable hue, so AOSP substitutes a fixed blue.
 assert.ok(Hct.fromInt(argbFromHex('#888888')).chroma < 5, 'grey seed is below the chroma cutoff');
@@ -141,6 +155,7 @@ assert.equal(withLstar('#3c4758', 0), '#000000', 'lStar 0 maps to black');
 assert.equal(withLstar('#3c4758', 150), '#3c4758');
 assert.equal(withLstar('#3c4758', -5), '#3c4758');
 assert.throws(() => withLstar('red', 50), TypeError);
+assert.equal(withLstar('#F00', 150), '#ff0000', '#rgb is accepted and normalized');
 // A string or null must not be coerced into a number (null >= 0 is true).
 assert.throws(() => withLstar('#3c4758', '12'), TypeError);
 assert.throws(() => withLstar('#3c4758', null), TypeError);
@@ -198,14 +213,17 @@ assert.throws(() => nothingWidgetColors(true, 'dark'), TypeError);
 for (const bad of ['red', '#ff000080', '#12345', '']) {
   assert.throws(() => nothingWidgetColors(bad, 'light'), TypeError, `bad seed ${bad}`);
 }
-assert.equal(nothingWidgetColors('#f00', 'light').widgetFood, '#d71921', 'short hex is accepted');
+assert.deepEqual(nothingWidgetColors('#f00', 'light'), nothingWidgetColors('#ff0000', 'light'), 'short hex is accepted');
+// A small int is almost certainly a shade or tone passed by mistake, not a color.
+assert.throws(() => nothingWidgetColors(50, 'light'), TypeError);
+assert.throws(() => nothingWidgetColors(0x00d71921, 'light'), TypeError, 'transparent ARGB');
 
-assert.throws(() => nothingWidgetColors(null, 'Dark'), /unknown mode/);
+assert.throws(() => nothingWidgetColors(null, 'Dark'), TypeError);
 assert.throws(() => nothingWidgetColors(null, 'toString'), /unknown mode/);
 
 // The README's Tokens table is written by hand; keep it matching TOKENS.
 {
-  const readme = (await import('node:fs')).readFileSync(new URL('./README.md', import.meta.url), 'utf8');
+  const readme = readFileSync(new URL('./README.md', import.meta.url), 'utf8');
   const cell = t => t.static ? `\`${t.static}\`` : `\`system_${t.shade[0]}_${t.shade[1]}\`${t.lstar !== undefined ? ` at lStar ${t.lstar}` : ''}`;
   for (const name of Object.keys(TOKENS.light)) {
     const row = `| \`${name}\` | ${cell(TOKENS.light[name])} | ${cell(TOKENS.dark[name])} |`;

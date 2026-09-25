@@ -18,13 +18,14 @@ function deepFreeze(obj) {
 }
 
 // Android's Color ints are signed 32-bit and material-color-utilities' are
-// unsigned, so accept either range.
-const isArgb = n => Number.isInteger(n) && n >= -0x80000000 && n <= 0xffffffff;
+// unsigned, so accept either range. Colors here are opaque, so a small int
+// (a shade or tone passed by mistake) is refused rather than read as black.
+const isArgb = n => Number.isInteger(n) && n >= -0x80000000 && n <= 0xffffffff && ((n >>> 24) & 0xff) === 0xff;
 
 function argbFromSeed(seed) {
-  if (isArgb(seed)) return seed;
-  if (typeof seed === 'string' && /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.test(seed)) return argbFromHex(seed);
-  throw new TypeError(`expected a #rrggbb color or an ARGB number, got ${JSON.stringify(seed)}`);
+  const hex = normalizeColor(seed);
+  if (hex === undefined) throw new TypeError(`expected a '#rrggbb' color or an opaque ARGB int, got ${JSON.stringify(seed)}`);
+  return argbFromHex(hex);
 }
 
 function averageArgb(a, b) {
@@ -43,7 +44,7 @@ function tone2025(palette, tone) {
 
 function checkOptions(spec, mode) {
   if (!SPECS.includes(spec)) throw new TypeError(`unknown spec: ${JSON.stringify(spec)} (expected ${SPECS.join(' or ')})`);
-  if (!MODES.includes(mode)) throw new Error(`unknown mode: ${mode}`);
+  if (!MODES.includes(mode)) throw new TypeError(`unknown mode: ${JSON.stringify(mode)} (expected light or dark)`);
 }
 
 // Android's wallpaper palette (the default TONAL_SPOT style). Chromas by spec:
@@ -52,7 +53,10 @@ function checkOptions(spec, mode) {
 //   '2021' (Android 14 to 16 QPR0):      accent1 36, accent2 16, neutral1 6,
 //          neutral2 8, the same in both modes
 // Android 12 and 13 used other chromas again and aren't modeled.
-export function paletteFromSeed(seed, { spec = '2025', mode = 'light' } = {}) {
+// The result records its spec and mode, because a 2025 palette only fits the
+// mode it was built for; nothingWidgetColors refuses it in the other one.
+export function paletteFromSeed(seed, options) {
+  const { spec = '2025', mode = 'light' } = options ?? {};
   checkOptions(spec, mode);
   let argb = argbFromSeed(seed);
   if (Hct.fromInt(argb).chroma < MIN_SEED_CHROMA) argb = argbFromHex(GOOGLE_BLUE);
@@ -78,7 +82,7 @@ export function paletteFromSeed(seed, { spec = '2025', mode = 'light' } = {}) {
     };
     tone = tone2025;
   }
-  const out = {};
+  const out = { spec, mode };
   for (const [key, palette] of Object.entries(palettes)) {
     out[key] = {};
     for (const n of SHADES) out[key][n] = hexFromArgb(tone(palette, 100 - n / 10));
@@ -173,12 +177,15 @@ function seedOf(x) {
   return undefined;
 }
 
-// Accepts '#rrggbb' (any case, '#' optional) or an ARGB int. 8-digit strings
-// are refused because Android writes them #AARRGGBB and CSS writes #RRGGBBAA.
+// Accepts '#rrggbb' or '#rgb' (any case, '#' optional) or an opaque ARGB int.
+// 8-digit strings are refused because Android writes them #AARRGGBB and CSS
+// writes #RRGGBBAA.
 function normalizeColor(value) {
   if (isArgb(value)) return hexFromArgb(value);
-  const m = typeof value === 'string' && /^#?([0-9a-f]{6})$/i.exec(value);
-  return m ? `#${m[1].toLowerCase()}` : undefined;
+  const m = typeof value === 'string' && /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value);
+  if (!m) return undefined;
+  const hex = m[1].length === 3 ? [...m[1]].map(c => c + c).join('') : m[1];
+  return `#${hex.toLowerCase()}`;
 }
 
 function readDevicePalette(palette, mode) {
@@ -207,7 +214,8 @@ function readDevicePalette(palette, mode) {
 // or DynamicScheme, a { neutral1: {shade: hex}, ... } palette read from a
 // device, or null/undefined for FALLBACK_SEED. `spec` picks the Android
 // palette math for seeds (see paletteFromSeed).
-export function nothingWidgetColors(palette, mode = 'light', { spec = '2025' } = {}) {
+export function nothingWidgetColors(palette, mode = 'light', options) {
+  const { spec = '2025' } = options ?? {};
   checkOptions(spec, mode);
   if (palette == null) {
     palette = cachedPalette(FALLBACK_SEED, spec, mode);
@@ -216,6 +224,9 @@ export function nothingWidgetColors(palette, mode = 'light', { spec = '2025' } =
   } else if (typeof palette !== 'object') {
     throw new TypeError(`unsupported palette: ${typeof palette}`);
   } else if (KEYS.some(k => k in palette)) {
+    if (palette.mode !== undefined && palette.mode !== mode) {
+      throw new TypeError(`palette was built for ${palette.mode} mode; build one with paletteFromSeed(seed, { mode: '${mode}' })`);
+    }
     palette = readDevicePalette(palette, mode);
   } else {
     const seed = seedOf(palette);

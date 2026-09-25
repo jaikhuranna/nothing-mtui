@@ -49,16 +49,18 @@ node sample/material-you-to-nothing.mjs '#2e7d32'
 
 `palette` can be:
 
-- a seed color, `'#rrggbb'` or an ARGB number;
+- a seed color: `'#rrggbb'` or `'#rgb'` (the `#` is optional), or an opaque
+  ARGB int, signed (Android's `Color` ints) or unsigned;
 - a material-color-utilities `Theme` or `DynamicScheme`, which gets rebuilt from
   the seed it carries (this package models Android's default wallpaper style);
-- a palette you read off a device, shaped
+- a palette you read off a device in the mode you're using it for, shaped
   `{ neutral1: { 0: '#…', 10: '#…', 50: '#…', …, 1000: '#…' }, neutral2, accent1, accent2 }`.
   The keys are Android shades (`system_neutral1_50` → `neutral1[50]`), not
-  tones, and every shade the tokens use must be there. Colors can be
-  `'#rrggbb'` (the `#` is optional) or ARGB ints, signed or unsigned, and come
-  back as lowercase `'#rrggbb'`. 8-digit strings are refused, because Android
-  writes them `#AARRGGBB` and CSS writes `#RRGGBBAA`;
+  tones, and every shade the tokens use must be there. Colors can be anything a
+  seed can be, and come back as lowercase `'#rrggbb'`. 8-digit strings are
+  refused, because Android writes them `#AARRGGBB` and CSS writes `#RRGGBBAA`.
+  A palette from `paletteFromSeed` works too, but only in the mode it was built
+  for, because the 2025 spec's accent1 differs between light and dark;
 - `null` or `undefined`, for `FALLBACK_SEED`.
 
 Anything else throws instead of quietly returning grey fallback colors.
@@ -68,7 +70,8 @@ Anything else throws instead of quietly returning grey fallback colors.
 - `nothingWidgetColors(palette, mode, { spec })` — resolved tokens for `'light'`
   or `'dark'`. `spec` is described below and only affects seeds.
 - `paletteFromSeed(seed, { spec, mode })` — the wallpaper palette Android builds
-  from a seed, using its default "tonal spot" style. Android changed the math in
+  from a seed, using its default "tonal spot" style. The result includes the
+  `spec` and `mode` it was built for. Android changed the math in
   Android 16 QPR1, so there are two specs:
 
   | `spec` | Android | accent1 | accent2 | neutral1 | neutral2 |
